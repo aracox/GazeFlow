@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Orchestrator"
+  short_description: "Route work to the right coding model"
+  default_prompt: "Use $orchestrator to do think about how to handle this task."

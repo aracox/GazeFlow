@@ -1,0 +1,4 @@
+interface:
+  display_name: "Consult Claude"
+  short_description: "Consult Claude Code for read-only analysis."
+  default_prompt: "Use $consult-claude to get a thorough read-only Claude Code review before implementing the task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Looping Engineer"
+  short_description: "Plan, build, verify, and deliver a goal"
+  default_prompt: "Use $looping-engineer to take this goal through a verified delivery loop."

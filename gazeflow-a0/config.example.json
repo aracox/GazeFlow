@@ -1,0 +1,25 @@
+{
+  "camera_index": 0,
+  "camera_width": 1280,
+  "camera_height": 720,
+  "camera_fps": 30,
+
+  "viewing_distance_mm": 600,
+  "screen_width_mm": null,
+  "screen_height_mm": null,
+
+  "calibration_target_margin": 0.10,
+  "calibration_target_count": 9,
+  "calibration_settle_ms": 300,
+  "calibration_target_valid_frames": 20,
+  "calibration_min_valid_frames": 15,
+  "calibration_max_ms": 2000,
+
+  "validation_target_count": 20,
+  "validation_settle_ms": 300,
+  "validation_valid_frames": 15,
+
+  "random_seed": 42,
+
+  "save_debug_video": true
+}

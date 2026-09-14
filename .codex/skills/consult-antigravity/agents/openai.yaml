@@ -1,0 +1,4 @@
+interface:
+  display_name: "Consult Antigravity"
+  short_description: "Read-only repository analysis with Antigravity"
+  default_prompt: "Use $consult-antigravity to analyze this repository read-only and recommend focused next steps."

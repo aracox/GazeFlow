@@ -1,0 +1,34 @@
+[project]
+name = "gazeflow-a0"
+version = "0.0.1"
+description = "GazeFlow A0 disposable feasibility spike: webcam gaze estimation measurement harness."
+requires-python = ">=3.12"
+dependencies = [
+    # No explicit opencv-python: mediapipe pulls in opencv-contrib-python
+    # (a superset providing the same `cv2` module), and installing both
+    # packages side by side is unsupported and causes cv2 import conflicts.
+    #
+    # Pinned: mediapipe 1.0.1's FaceLandmarker Tasks-API graph crashes hard
+    # (a C++ CHECK failure, not a catchable exception) on macOS when the GPU
+    # service isn't available, even with the CPU delegate requested. 0.10.21
+    # is the last known-stable release for this use case.
+    "mediapipe==0.10.21",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "matplotlib",
+    "screeninfo",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["a0*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
