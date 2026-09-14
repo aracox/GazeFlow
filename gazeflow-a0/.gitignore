@@ -5,3 +5,4 @@ __pycache__/
 *.egg-info/
 outputs/*/
 !outputs/.gitkeep
+scripts/weights/
