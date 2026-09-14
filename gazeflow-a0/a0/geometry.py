@@ -134,13 +134,29 @@ def normalized_to_pixel(x_norm: float, y_norm: float, width_px: int, height_px: 
 # Generic 3D face model (arbitrary units, not measured from the user) used
 # with solvePnP purely to obtain a stable yaw/pitch/roll signal. This is a
 # widely used approximate anchor set; A0 does not need clinical accuracy.
+#
+# Axes are aligned to OpenCV's camera convention: +X toward larger
+# image-pixel x (image right), +Y toward larger image-pixel y (image
+# down), +Z away from the camera. A frontal face's subject-left features
+# (eye/mouth corners) appear on the image's *right* side (see
+# landmarks.py) so they get positive X; the chin sits below the nose in
+# the image so it gets positive Y; eyes/mouth sit behind the nose tip
+# (which protrudes toward the camera) so they get positive Z.
+#
+# Verified empirically against a real face image: this sign convention is
+# the one where two independent PnP solvers (SOLVEPNP_ITERATIVE and
+# SOLVEPNP_SQPNP) agree closely and reprojection error is lowest. Getting
+# any one axis backwards still lets solvePnP converge (the anchors are
+# roughly bilaterally symmetric and near-planar) but yields a mirrored or
+# solver-dependent pose -- e.g. roll or pitch parked near +-180 deg, or
+# flipping between solvers.
 _MODEL_POINTS_3D = np.array([
-    (0.0, 0.0, 0.0),        # nose tip
-    (0.0, -330.0, -65.0),   # chin
-    (-225.0, 170.0, -135.0),  # subject's left eye, outer corner
-    (225.0, 170.0, -135.0),   # subject's right eye, outer corner
-    (-150.0, -150.0, -125.0),  # subject's left mouth corner
-    (150.0, -150.0, -125.0),   # subject's right mouth corner
+    (0.0, 0.0, 0.0),      # nose tip
+    (0.0, 330.0, 65.0),   # chin
+    (225.0, -170.0, 135.0),   # subject's left eye, outer corner (image right)
+    (-225.0, -170.0, 135.0),  # subject's right eye, outer corner (image left)
+    (150.0, 150.0, 125.0),    # subject's left mouth corner (image right)
+    (-150.0, 150.0, 125.0),   # subject's right mouth corner (image left)
 ], dtype=np.float64)
 
 
@@ -166,8 +182,6 @@ class HeadPoseEstimator:
             [0, 0, 1],
         ], dtype=np.float64)
         self.dist_coeffs = np.zeros((4, 1))
-        self._prev_rvec: np.ndarray | None = None
-        self._prev_tvec: np.ndarray | None = None
 
     def estimate(self, anchor_points_px: np.ndarray) -> HeadPose:
         """anchor_points_px: (6,2) array in pixel coords, ordered to match
@@ -178,20 +192,20 @@ class HeadPoseEstimator:
         if not np.all(np.isfinite(anchor_points_px)):
             return HeadPose(0.0, 0.0, 0.0, success=False)
 
+        # SQPNP: a globally-optimal, closed-form solver with no initial-guess
+        # dependency, so it doesn't fall into the local-minima pose ambiguity
+        # that SOLVEPNP_ITERATIVE is prone to for this near-planar 6-point
+        # anchor set (verified empirically -- see _MODEL_POINTS_3D comment).
         ok, rvec, tvec = cv2.solvePnP(
             _MODEL_POINTS_3D,
             anchor_points_px.astype(np.float64),
             self.camera_matrix,
             self.dist_coeffs,
-            rvec=self._prev_rvec,
-            tvec=self._prev_tvec,
-            useExtrinsicGuess=self._prev_rvec is not None,
-            flags=cv2.SOLVEPNP_ITERATIVE,
+            flags=cv2.SOLVEPNP_SQPNP,
         )
         if not ok:
             return HeadPose(0.0, 0.0, 0.0, success=False)
 
-        self._prev_rvec, self._prev_tvec = rvec, tvec
         rmat, _ = cv2.Rodrigues(rvec)
         yaw, pitch, roll = _rotation_matrix_to_euler_deg(rmat)
         return HeadPose(yaw_deg=yaw, pitch_deg=pitch, roll_deg=roll, success=True)
