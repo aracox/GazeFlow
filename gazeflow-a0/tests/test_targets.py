@@ -1,6 +1,13 @@
 import math
 
-from a0.geometry import CALIBRATION_POINTS, generate_validation_points, shuffled_calibration_points
+import pytest
+
+from a0.geometry import (
+    CALIBRATION_POINTS,
+    generate_calibration_points,
+    generate_validation_points,
+    shuffled_calibration_points,
+)
 
 
 def test_nine_calibration_positions_correct():
@@ -47,3 +54,34 @@ def test_validation_points_not_all_clustered_in_center():
     points = generate_validation_points(seed=42, count=20)
     center_count = sum(1 for _, x, y in points if 0.4 <= x <= 0.6 and 0.4 <= y <= 0.6)
     assert center_count < len(points)
+
+
+def test_generate_calibration_points_supports_other_square_counts():
+    points = generate_calibration_points(16, margin=0.10)
+    assert len(points) == 16
+    xs = sorted({round(x, 6) for _, x, _ in points})
+    ys = sorted({round(y, 6) for _, _, y in points})
+    assert xs == ys
+    assert math.isclose(xs[0], 0.10, rel_tol=1e-9)
+    assert math.isclose(xs[-1], 0.90, rel_tol=1e-9)
+    assert len(xs) == 4
+
+
+def test_generate_calibration_points_default_matches_nine_point_grid():
+    assert generate_calibration_points(9) == CALIBRATION_POINTS
+
+
+def test_generate_calibration_points_rejects_non_square_count():
+    with pytest.raises(ValueError):
+        generate_calibration_points(10)
+
+
+def test_generate_calibration_points_rejects_too_few_points():
+    with pytest.raises(ValueError):
+        generate_calibration_points(1)
+
+
+def test_shuffled_calibration_points_honors_count():
+    order = shuffled_calibration_points(seed=42, count=16)
+    assert len(order) == 16
+    assert {p[0] for p in order} == {f"c{i}" for i in range(1, 17)}

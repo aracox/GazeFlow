@@ -83,6 +83,14 @@ multiple values at once). If `--screen-width-mm`/`--screen-height-mm` are
 omitted, only normalized and pixel error are reported — degree error is
 never fabricated from an assumed screen size.
 
+Calibration grid density can be changed with `--calibration-points` (must
+be a perfect square: 4, 9, 16, 25, ...; default 9). More points give the
+model more spatial coverage to fit at the cost of a longer session:
+
+```bash
+python -m a0.main run --calibration-points 16 --screen-width-mm 345 --screen-height-mm 223
+```
+
 The full flow: instructions screen → SPACE to start → ~2s open-eye baseline
 → 9-point calibration (follow the target with your eyes only) → Ridge
 model fit + cross-validation → 20-point independent validation → results

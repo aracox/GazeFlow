@@ -74,6 +74,8 @@ class Config:
             self.screen_width_mm = args.screen_width_mm
         if getattr(args, "screen_height_mm", None) is not None:
             self.screen_height_mm = args.screen_height_mm
+        if getattr(args, "calibration_points", None) is not None:
+            self.calibration_target_count = args.calibration_points
         if getattr(args, "save_debug_video", False):
             self.save_debug_video = True
         if getattr(args, "no_debug_video", False):
@@ -285,7 +287,9 @@ def _collect_points(ctx: RunContext, xy: tuple[float, float], point_id: str, pha
 
 def _run_calibration(ctx: RunContext) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[str]]:
     cfg = ctx.config
-    order = geometry.shuffled_calibration_points(cfg.random_seed)
+    order = geometry.shuffled_calibration_points(
+        cfg.random_seed, count=cfg.calibration_target_count, margin=cfg.calibration_target_margin
+    )
     prev_xy = (0.5, 0.5)
     all_features: list[np.ndarray] = []
     all_x: list[float] = []
@@ -429,6 +433,11 @@ def _pose_from_feature(fv):
 def cmd_run(args: argparse.Namespace) -> int:
     cfg = Config.load(args.config)
     cfg.apply_cli_overrides(args)
+    try:
+        geometry.generate_calibration_points(cfg.calibration_target_count, cfg.calibration_target_margin)
+    except ValueError as exc:
+        print(f"Invalid configuration: {exc}", file=sys.stderr)
+        return 1
 
     run_id = datetime.now().strftime("%Y-%m-%dT%H%M%S")
     run_dir = Path(args.outputs_dir) / run_id
@@ -479,7 +488,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
         gaze_model = model.GazeModel.fit(X, yx, yy, cv_result.selected_alpha)
 
-        calib_points_xy = [(x, y) for _, x, y in geometry.CALIBRATION_POINTS]
+        calib_points_xy = [
+            (x, y) for _, x, y in geometry.generate_calibration_points(cfg.calibration_target_count, cfg.calibration_target_margin)
+        ]
         validation_rows = _run_validation(ctx, gaze_model, calib_points_xy)
         if not validation_rows:
             raise RuntimeError("No validation targets produced usable data")
@@ -642,6 +653,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--viewing-distance-mm", type=float, default=None)
     p_run.add_argument("--screen-width-mm", type=float, default=None)
     p_run.add_argument("--screen-height-mm", type=float, default=None)
+    p_run.add_argument("--calibration-points", type=int, default=None,
+                        help="Number of calibration points; must be a perfect square (4, 9, 16, 25, ...). Default: 9.")
     p_run.add_argument("--save-debug-video", action="store_true")
     p_run.add_argument("--no-debug-video", action="store_true")
     p_run.add_argument("--config", type=Path, default=None)

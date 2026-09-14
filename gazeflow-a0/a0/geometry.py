@@ -11,20 +11,39 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# 9-point calibration grid (section 21). Order here is canonical; actual
-# on-screen presentation order is shuffled deterministically per run.
-CALIBRATION_POINTS: list[tuple[str, float, float]] = [
-    ("c1", 0.1, 0.1), ("c2", 0.5, 0.1), ("c3", 0.9, 0.1),
-    ("c4", 0.1, 0.5), ("c5", 0.5, 0.5), ("c6", 0.9, 0.5),
-    ("c7", 0.1, 0.9), ("c8", 0.5, 0.9), ("c9", 0.9, 0.9),
-]
+def generate_calibration_points(count: int = 9, margin: float = 0.10) -> list[tuple[str, float, float]]:
+    """Evenly spaced NxN calibration grid spanning [margin, 1-margin]
+    (section 21 uses N=3, i.e. 9 points; --calibration-points generalizes
+    this to other square counts). Deterministic positions -- only the
+    on-screen *presentation order* is randomized, by shuffled_calibration_points."""
+    side = round(math.sqrt(count))
+    if side < 2 or side * side != count:
+        raise ValueError(
+            f"calibration_target_count must be a perfect square >= 4 (4, 9, 16, 25, ...), got {count}"
+        )
+    coords = np.linspace(margin, 1.0 - margin, side)
+    points: list[tuple[str, float, float]] = []
+    idx = 1
+    for y in coords:
+        for x in coords:
+            points.append((f"c{idx}", float(x), float(y)))
+            idx += 1
+    return points
 
 
-def shuffled_calibration_points(seed: int) -> list[tuple[str, float, float]]:
+# Default 9-point calibration grid (section 21), kept as a module-level
+# constant for convenience/backward compatibility with the plan's default.
+CALIBRATION_POINTS: list[tuple[str, float, float]] = generate_calibration_points(9)
+
+
+def shuffled_calibration_points(
+    seed: int, count: int = 9, margin: float = 0.10
+) -> list[tuple[str, float, float]]:
     """Deterministically shuffle calibration point presentation order."""
+    points = generate_calibration_points(count, margin)
     rng = np.random.default_rng(seed)
-    order = rng.permutation(len(CALIBRATION_POINTS))
-    return [CALIBRATION_POINTS[i] for i in order]
+    order = rng.permutation(len(points))
+    return [points[i] for i in order]
 
 
 def generate_validation_points(
