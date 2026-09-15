@@ -125,22 +125,29 @@ python -m a0.main live outputs/<run-id>
 
 ## Sample App: Gaze + Blink YES/NO Picker
 
-A small demo built on the same calibration/model/UI code, showing gaze
-tracking driving a real interaction instead of just a debug view. Reuses a
-completed run's calibration rather than recalibrating:
+A small demo built on the same camera/landmark/feature/model code, showing
+gaze tracking driving a real interaction instead of just a debug view.
+Standalone -- no `a0.main run` needed first:
 
 ```bash
-python sample_app.py outputs/<run-id>
+python sample_app.py
 ```
 
-Runs in a normal (non-fullscreen) window, centered on screen, sized to a
-quarter of the screen's width and height -- not fullscreen. Look at the
-left half (NO) or right half (YES) of the window; blink while looking at a
-side to select it (selection is blink-only; there's no dwell-time
-option). A short eyes-open baseline is collected at startup (blink
-threshold is session/lighting-sensitive, unlike the reused gaze
-calibration). ESC to quit. See `sample_app.py`'s module docstring for
-details.
+Runs in a normal (non-fullscreen) window sized to a quarter of the
+screen's width/height, near the top of the screen. At startup it collects
+a short eyes-open baseline (for blink detection) and then a quick 5-point
+calibration (four corners + center of the window; use
+`--calibration-points 4` to skip the center point) -- done fresh each run,
+against the window's own bounds, so it matches your current seating
+distance/position rather than reusing stale calibration from elsewhere.
+Follow the dot with your eyes during calibration (SPACE to start, ESC to
+cancel).
+
+After that, look at the left half (NO) or right half (YES) of the window;
+blink while looking at a side to select it (selection is blink-only, and
+requires the eyes-closed reading to hold for a few consecutive frames so a
+single noisy frame can't trigger it). ESC to quit. See `sample_app.py`'s
+module docstring for details.
 
 ## Output Files
 
