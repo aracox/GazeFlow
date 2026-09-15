@@ -245,10 +245,10 @@ def draw_idle_screen(win: WindowedUI, question: str, zone: str | None, gaze_xy: 
     canvas[:, mid:] = yes_color
 
     _put_centered(win, canvas, question, y_frac=0.15, scale=0.7)
-    _put_centered(win, canvas, "NO", y_frac=0.5, scale=1.6)
-    x = 3 * win.width // 4
-    size, _ = cv2.getTextSize("YES", cv2.FONT_HERSHEY_SIMPLEX, 1.6, 2)
-    cv2.putText(canvas, "YES", (x - size[0] // 2, int(win.height * 0.5)), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (255, 255, 255), 2, cv2.LINE_AA)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    for label, half_center_x in (("NO", win.width // 4), ("YES", 3 * win.width // 4)):
+        size, _ = cv2.getTextSize(label, font, 1.6, 2)
+        cv2.putText(canvas, label, (half_center_x - size[0] // 2, int(win.height * 0.5)), font, 1.6, (255, 255, 255), 2, cv2.LINE_AA)
 
     if gaze_xy is not None:
         x_clamped, y_clamped = min(1.0, max(0.0, gaze_xy[0])), min(1.0, max(0.0, gaze_xy[1]))
