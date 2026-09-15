@@ -37,7 +37,7 @@ CONFIRMATION_DISPLAY_SECONDS = 1.5
 BASELINE_DURATION_SECONDS = 2.0
 FACE_LOST_GRACE_SECONDS = 0.4  # tolerate brief tracking dropouts without losing the highlighted side
 WINDOW_SCALE = 0.5  # window is WINDOW_SCALE x WINDOW_SCALE of the screen (0.5x0.5 = quarter-area)
-WINDOW_TOP_FRAC = 0.30  # window's top edge sits this far down the screen (horizontally still centered)
+WINDOW_TOP_FRAC = 0.05  # window's top edge sits this far down the screen (horizontally still centered)
 BLINK_THRESHOLD_FACTOR = 0.55  # stricter than a0.calibration's default 0.65: requires a more definite closure
 BLINK_MIN_CONSECUTIVE_FRAMES = 3  # a single noisy low-EAR frame (e.g. from looking to the side) isn't a blink
 
