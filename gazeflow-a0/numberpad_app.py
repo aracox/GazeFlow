@@ -1,12 +1,20 @@
 """Sample app: a 0-9 number pad driven by gaze + double-blink, with a
 small output window showing the digits picked so far.
 
-Ten boxes (0-4 on top, 5-9 on bottom) in a normal (non-fullscreen) window
-near the top of the screen, plus a second small "output" window directly
-below it showing the accumulated digit string. Look at a box and blink
-TWICE in quick succession to select it -- a single blink does nothing here
-(unlike sample_app.py's YES/NO picker), so a normal blink while just
-looking around a box doesn't accidentally enter a digit.
+Two-stage selection instead of one 10-way grid, because a single-stage 5x2
+grid turned out too imprecise in practice (mixing a left/right AND a
+top/bottom discrimination per pick, and the vertical axis is the weaker
+one for this gaze model per A0's findings):
+
+  Stage 1: look left ("0-4") or right ("5-9") -- the same big two-zone
+           split validated in sample_app.py's YES/NO picker.
+  Stage 2: the five digits in that group, in a single row spanning the
+           full window width -- only left/right position matters, no row
+           ambiguity.
+
+Look at a box and blink TWICE in quick succession to select it at either
+stage; a single blink does nothing (unlike sample_app.py's single-blink
+YES/NO), so it takes a deliberate double-blink to confirm.
 
 Does its own fresh in-app calibration at startup, same as sample_app.py --
 see gaze_ui_common.py.
@@ -20,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -41,10 +50,9 @@ from gaze_ui_common import (
 GAZE_SMOOTHING_ALPHA = 0.12
 FACE_LOST_GRACE_SECONDS = 0.4
 DOUBLE_BLINK_WINDOW_SECONDS = 0.8  # max gap between the two blinks of a double-blink
-SELECTION_FLASH_SECONDS = 0.4      # how long a just-selected box stays highlighted
+SELECTION_FLASH_SECONDS = 0.4      # how long a just-confirmed box stays highlighted
 
-DIGIT_GRID = [str(d) for d in range(10)]  # index -> label; row = idx // 5, col = idx % 5
-GRID_MARGIN = 0.14
+ROW_MARGIN = 0.10  # digit boxes in stage 2 sit this far in from the window's left/right edges
 
 BG_COLOR = (30, 30, 30)
 BOX_COLOR = (70, 70, 70)
@@ -55,48 +63,62 @@ BOX_FLASH_COLOR = (60, 200, 60)       # just confirmed
 MAIN_WINDOW_NAME = "GazeFlow Sample: Number Pad"
 OUTPUT_WINDOW_NAME = "GazeFlow Sample: Output"
 
-
-def digit_box_centers() -> list[tuple[float, float]]:
-    xs = np.linspace(GRID_MARGIN, 1 - GRID_MARGIN, 5)
-    ys = [0.32, 0.72]
-    return [(float(xs[i % 5]), ys[i // 5]) for i in range(10)]
+GROUPS = {"0-4": ["0", "1", "2", "3", "4"], "5-9": ["5", "6", "7", "8", "9"]}
 
 
-def nearest_digit(gaze_xy: tuple[float, float]) -> int:
-    centers = digit_box_centers()
-    dists = [((gaze_xy[0] - cx) ** 2 + (gaze_xy[1] - cy) ** 2) for cx, cy in centers]
-    return min(range(10), key=lambda i: dists[i])
+@dataclass
+class Box:
+    label: str
+    cx: float
+    cy: float
+    w: float
+    h: float
 
 
-def draw_numberpad(win: WindowedUI, gaze_xy: tuple[float, float] | None, active_digit: int | None,
-                    armed_digit: int | None, flash_digit: int | None) -> np.ndarray:
+def group_boxes() -> list[Box]:
+    labels = list(GROUPS.keys())
+    return [Box(labels[0], 0.25, 0.5, 0.46, 0.7), Box(labels[1], 0.75, 0.5, 0.46, 0.7)]
+
+
+def digit_boxes(group_label: str) -> list[Box]:
+    digits = GROUPS[group_label]
+    xs = np.linspace(ROW_MARGIN, 1 - ROW_MARGIN, len(digits))
+    box_w = (1 - 2 * ROW_MARGIN) / len(digits) * 0.85
+    return [Box(d, float(x), 0.5, box_w, 0.6) for d, x in zip(digits, xs)]
+
+
+def nearest_box(gaze_xy: tuple[float, float], boxes: list[Box]) -> int:
+    dists = [((gaze_xy[0] - b.cx) ** 2 + (gaze_xy[1] - b.cy) ** 2) for b in boxes]
+    return min(range(len(boxes)), key=lambda i: dists[i])
+
+
+def draw_boxes(win: WindowedUI, boxes: list[Box], gaze_xy: tuple[float, float] | None,
+               active_idx: int | None, armed_idx: int | None, flash_idx: int | None, footer: str) -> np.ndarray:
     import cv2
 
     canvas = win.new_canvas()
     canvas[:] = BG_COLOR
-    box_w = int(win.width / 5 * 0.8)
-    box_h = int(win.height / 2 * 0.55)
 
-    for i, (cx_norm, cy_norm) in enumerate(digit_box_centers()):
-        cx, cy = int(cx_norm * win.width), int(cy_norm * win.height)
+    for i, box in enumerate(boxes):
+        cx, cy = int(box.cx * win.width), int(box.cy * win.height)
+        bw, bh = int(box.w * win.width), int(box.h * win.height)
         color = BOX_COLOR
-        if flash_digit == i:
+        if flash_idx == i:
             color = BOX_FLASH_COLOR
-        elif armed_digit == i:
+        elif armed_idx == i:
             color = BOX_ARMED_COLOR
-        elif active_digit == i:
+        elif active_idx == i:
             color = BOX_ACTIVE_COLOR
-        cv2.rectangle(canvas, (cx - box_w // 2, cy - box_h // 2), (cx + box_w // 2, cy + box_h // 2), color, -1)
-        cv2.rectangle(canvas, (cx - box_w // 2, cy - box_h // 2), (cx + box_w // 2, cy + box_h // 2), (200, 200, 200), 1)
-        label = DIGIT_GRID[i]
-        size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 1.3, 2)
-        cv2.putText(canvas, label, (cx - size[0] // 2, cy + size[1] // 2), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.rectangle(canvas, (cx - bw // 2, cy - bh // 2), (cx + bw // 2, cy + bh // 2), color, -1)
+        cv2.rectangle(canvas, (cx - bw // 2, cy - bh // 2), (cx + bw // 2, cy + bh // 2), (200, 200, 200), 1)
+        size, _ = cv2.getTextSize(box.label, cv2.FONT_HERSHEY_SIMPLEX, 1.3, 2)
+        cv2.putText(canvas, box.label, (cx - size[0] // 2, cy + size[1] // 2), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (255, 255, 255), 2, cv2.LINE_AA)
 
     if gaze_xy is not None:
         x_clamped, y_clamped = min(1.0, max(0.0, gaze_xy[0])), min(1.0, max(0.0, gaze_xy[1]))
         cv2.circle(canvas, (int(x_clamped * win.width), int(y_clamped * win.height)), 5, (0, 0, 255), 2, cv2.LINE_AA)
 
-    put_centered(win, canvas, "Look at a box, blink TWICE quickly to select. ESC to quit.", y_frac=0.95, scale=0.42)
+    put_centered(win, canvas, footer, y_frac=0.95, scale=0.42)
     return canvas
 
 
@@ -105,6 +127,59 @@ def draw_output(win: WindowedUI, digits: str) -> np.ndarray:
     canvas[:] = (20, 20, 20)
     put_centered(win, canvas, digits if digits else "-", y_frac=0.65, scale=1.3)
     return canvas
+
+
+@dataclass
+class BlinkPicker:
+    """Double-blink-to-select state machine over whatever `boxes` are
+    currently shown. Call `.step(gaze_xy, blinking, now)` once per frame;
+    returns the selected box index, or None."""
+    eyes_closed_run: int = 0
+    first_blink_time: float | None = None
+    armed_idx: int | None = None
+    flash_idx: int | None = None
+    flash_until: float = 0.0
+    active_idx: int | None = None
+    last_active_idx: int | None = None
+    last_seen: float = field(default_factory=time.monotonic)
+
+    def reset(self) -> None:
+        self.__init__()
+
+    def step(self, boxes: list[Box], gaze_xy: tuple[float, float] | None, blinking: bool, now: float) -> int | None:
+        self.active_idx = None
+        if gaze_xy is not None:
+            self.active_idx = nearest_box(gaze_xy, boxes)
+            self.last_seen = now
+        elif self.last_active_idx is not None and (now - self.last_seen) < FACE_LOST_GRACE_SECONDS:
+            self.active_idx = self.last_active_idx
+        self.last_active_idx = self.active_idx
+
+        blink_event = False
+        if blinking:
+            self.eyes_closed_run += 1
+        else:
+            if self.eyes_closed_run >= BLINK_MIN_CONSECUTIVE_FRAMES:
+                blink_event = True
+            self.eyes_closed_run = 0
+
+        selected = None
+        if blink_event:
+            if self.active_idx is not None:
+                if (self.first_blink_time is not None
+                        and (now - self.first_blink_time) <= DOUBLE_BLINK_WINDOW_SECONDS
+                        and self.armed_idx == self.active_idx):
+                    selected = self.active_idx
+                    self.flash_idx, self.flash_until = self.active_idx, now + SELECTION_FLASH_SECONDS
+                    self.first_blink_time, self.armed_idx = None, None
+                else:
+                    self.first_blink_time, self.armed_idx = now, self.active_idx
+            else:
+                self.first_blink_time, self.armed_idx = None, None
+
+        if self.flash_idx is not None and now >= self.flash_until:
+            self.flash_idx = None
+        return selected
 
 
 def main() -> int:
@@ -135,16 +210,11 @@ def main() -> int:
         gaze_model = run_calibration(camera, landmarker, extractor, win, blink_threshold,
                                       cross_calibration_points(args.calibration_points))
 
-        eyes_closed_run = 0
-        first_blink_time: float | None = None
-        armed_digit: int | None = None
-        flash_digit: int | None = None
-        flash_until = 0.0
         smoothed_xy: tuple[float, float] | None = None
-        active_digit: int | None = None
-        last_active_digit: int | None = None
-        last_face_seen = time.monotonic()
         entered_digits = ""
+        stage = "group"
+        boxes = group_boxes()
+        picker = BlinkPicker()
 
         while True:
             frame = camera.read()
@@ -155,7 +225,7 @@ def main() -> int:
             result = landmarker.detect(frame.image_bgr, frame.timestamp_ms)
             fv = extractor.extract(result.landmarks_norm) if result.face_detected else None
 
-            active_digit = None
+            gaze_xy = None
             blinking = False
             if fv is not None:
                 pred_x, pred_y = gaze_model.predict(fv.to_array().reshape(1, -1))
@@ -164,40 +234,25 @@ def main() -> int:
                     GAZE_SMOOTHING_ALPHA * raw_xy[0] + (1 - GAZE_SMOOTHING_ALPHA) * smoothed_xy[0],
                     GAZE_SMOOTHING_ALPHA * raw_xy[1] + (1 - GAZE_SMOOTHING_ALPHA) * smoothed_xy[1],
                 )
-                active_digit = nearest_digit(smoothed_xy)
+                gaze_xy = smoothed_xy
                 blinking = calibration.is_blinking(fv.left_ear, fv.right_ear, blink_threshold)
-                last_face_seen = now
-            elif last_active_digit is not None and (now - last_face_seen) < FACE_LOST_GRACE_SECONDS:
-                active_digit = last_active_digit  # tolerate a brief tracking dropout
-            last_active_digit = active_digit
 
-            # completed-blink edge detection (transition out of a sustained closure)
-            blink_event = False
-            if blinking:
-                eyes_closed_run += 1
-            else:
-                if eyes_closed_run >= BLINK_MIN_CONSECUTIVE_FRAMES:
-                    blink_event = True
-                eyes_closed_run = 0
+            selected = picker.step(boxes, gaze_xy, blinking, now)
 
-            if blink_event:
-                if active_digit is not None:
-                    if (first_blink_time is not None
-                            and (now - first_blink_time) <= DOUBLE_BLINK_WINDOW_SECONDS
-                            and armed_digit == active_digit):
-                        entered_digits += DIGIT_GRID[active_digit]
-                        print(f"Selected: {DIGIT_GRID[active_digit]}  (output so far: {entered_digits})")
-                        flash_digit, flash_until = active_digit, now + SELECTION_FLASH_SECONDS
-                        first_blink_time, armed_digit = None, None
-                    else:
-                        first_blink_time, armed_digit = now, active_digit
+            if selected is not None:
+                if stage == "group":
+                    stage = "digit"
+                    boxes = digit_boxes(boxes[selected].label)
                 else:
-                    first_blink_time, armed_digit = None, None
+                    entered_digits += boxes[selected].label
+                    print(f"Selected: {boxes[selected].label}  (output so far: {entered_digits})")
+                    stage = "group"
+                    boxes = group_boxes()
+                picker.reset()
 
-            if flash_digit is not None and now >= flash_until:
-                flash_digit = None
-
-            win.show(draw_numberpad(win, smoothed_xy, active_digit, armed_digit, flash_digit), wait_ms=1)
+            footer = "Pick a group: blink TWICE to select. ESC to quit." if stage == "group" \
+                else "Pick a digit: blink TWICE to select. ESC to quit."
+            win.show(draw_boxes(win, boxes, smoothed_xy, picker.active_idx, picker.armed_idx, picker.flash_idx, footer), wait_ms=1)
             key = output_win.show(draw_output(output_win, entered_digits), wait_ms=1)
             if key == a0_ui.ESC_KEY:
                 break

@@ -162,14 +162,24 @@ python numberpad_app.py
 ```
 
 Same startup flow (baseline, then a 5-point calibration) as the YES/NO
-picker, then shows a 5x2 grid of digit boxes (0-4 top row, 5-9 bottom row)
-plus a small separate output window directly below it that displays the
-digits picked so far. Look at a box and blink **twice** in quick
-succession (within 0.8s) to select it -- a single blink does nothing here,
-so it takes a deliberate double-blink rather than a normal blink to enter
-a digit. The box you're double-blinking on turns blue after the first
-blink (waiting for the second) and flashes green when confirmed. ESC
-(in either window) quits both.
+picker. Picking a digit is two stages rather than one 10-way grid -- a
+single-stage 5x2 grid turned out too imprecise in practice (each pick
+needed both a left/right AND a top/bottom judgment, and the vertical axis
+is the weaker one for this gaze model per A0's findings):
+
+1. Look left ("0-4") or right ("5-9") -- the same big two-zone split
+   already validated by the YES/NO picker.
+2. The five digits in that group appear in a single row spanning the
+   full window width -- only left/right position matters now, no row
+   ambiguity.
+
+At either stage, blink **twice** in quick succession (within 0.8s) on a
+box to select it -- a single blink does nothing, so it takes a deliberate
+double-blink to confirm. The box turns blue after the first blink
+(waiting for the second) and flashes green when confirmed; after a digit
+is confirmed it's appended to the small separate output window below the
+main one, and the picker returns to the group-selection stage for the
+next digit. ESC (in either window) quits both.
 
 ## Output Files
 
