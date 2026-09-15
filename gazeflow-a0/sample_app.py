@@ -32,7 +32,7 @@ from a0.features import FEATURE_NAMES, FeatureExtractor
 from a0.landmarks import FaceLandmarkerWrapper
 from a0.model import GazeModel
 
-GAZE_SMOOTHING_ALPHA = 0.3  # EMA weight on each new prediction; lower = smoother/laggier
+GAZE_SMOOTHING_ALPHA = 0.12  # EMA weight on each new prediction; lower = smoother/laggier
 CONFIRMATION_DISPLAY_SECONDS = 1.5
 BASELINE_DURATION_SECONDS = 2.0
 FACE_LOST_GRACE_SECONDS = 0.4  # tolerate brief tracking dropouts without losing the highlighted side
