@@ -149,6 +149,28 @@ requires the eyes-closed reading to hold for a few consecutive frames so a
 single noisy frame can't trigger it). ESC to quit. See `sample_app.py`'s
 module docstring for details.
 
+Shared setup code (windowing, baseline collection, the in-app calibration
+flow) lives in `gaze_ui_common.py` -- also used by `numberpad_app.py` below.
+
+## Sample App: Number Pad (0-9) via Gaze + Double-Blink
+
+A second demo on the same foundation, for selecting a digit instead of a
+binary choice:
+
+```bash
+python numberpad_app.py
+```
+
+Same startup flow (baseline, then a 5-point calibration) as the YES/NO
+picker, then shows a 5x2 grid of digit boxes (0-4 top row, 5-9 bottom row)
+plus a small separate output window directly below it that displays the
+digits picked so far. Look at a box and blink **twice** in quick
+succession (within 0.8s) to select it -- a single blink does nothing here,
+so it takes a deliberate double-blink rather than a normal blink to enter
+a digit. The box you're double-blinking on turns blue after the first
+blink (waiting for the second) and flashes green when confirmed. ESC
+(in either window) quits both.
+
 ## Output Files
 
 Each run creates `outputs/<run-id>/`:
