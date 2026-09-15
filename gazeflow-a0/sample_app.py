@@ -37,6 +37,8 @@ CONFIRMATION_DISPLAY_SECONDS = 1.5
 BASELINE_DURATION_SECONDS = 2.0
 FACE_LOST_GRACE_SECONDS = 0.4  # tolerate brief tracking dropouts without losing the highlighted side
 WINDOW_SCALE = 0.5  # window is WINDOW_SCALE x WINDOW_SCALE of the screen (0.5x0.5 = quarter-area)
+BLINK_THRESHOLD_FACTOR = 0.55  # stricter than a0.calibration's default 0.65: requires a more definite closure
+BLINK_MIN_CONSECUTIVE_FRAMES = 3  # a single noisy low-EAR frame (e.g. from looking to the side) isn't a blink
 
 ZONE_NO, ZONE_YES = "NO", "YES"
 NO_COLOR, YES_COLOR = (60, 60, 180), (60, 160, 60)     # idle background (BGR)
@@ -174,8 +176,11 @@ def main() -> int:
     win = WindowedUI(screen_w, screen_h)
 
     try:
-        blink_threshold = calibration.blink_threshold(collect_baseline_ear(camera, landmarker, extractor, win))
+        blink_threshold = calibration.blink_threshold(
+            collect_baseline_ear(camera, landmarker, extractor, win), factor=BLINK_THRESHOLD_FACTOR
+        )
         print(f"Blink threshold set: {blink_threshold:.4f}")
+        blink_streak = 0
 
         smoothed_xy: tuple[float, float] | None = None
         current_zone: str | None = None
@@ -219,10 +224,12 @@ def main() -> int:
                 zone = current_zone  # tolerate a brief tracking dropout
 
             current_zone = zone
+            blink_streak = blink_streak + 1 if blinking else 0
 
-            if current_zone is not None and blinking:
+            if current_zone is not None and blink_streak >= BLINK_MIN_CONSECUTIVE_FRAMES:
                 confirmed_zone = current_zone
                 confirming_until = now + CONFIRMATION_DISPLAY_SECONDS
+                blink_streak = 0
                 print(f"Selected: {confirmed_zone}")
                 continue
 
