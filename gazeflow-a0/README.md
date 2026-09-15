@@ -123,6 +123,23 @@ a live predicted gaze dot:
 python -m a0.main live outputs/<run-id>
 ```
 
+## Sample App: Gaze + Blink YES/NO Picker
+
+A small demo built on the same calibration/model/UI code, showing gaze
+tracking driving a real interaction instead of just a debug view. Reuses a
+completed run's calibration rather than recalibrating:
+
+```bash
+python sample_app.py outputs/<run-id>
+```
+
+Look at the left half (NO) or right half (YES) of the screen; select by
+blinking while looking at that side, or by holding your gaze there for 2+
+seconds. A short eyes-open baseline is collected at startup (blink
+threshold is session/lighting-sensitive, unlike the reused gaze
+calibration). ESC to quit. See `sample_app.py`'s module docstring for
+details.
+
 ## Output Files
 
 Each run creates `outputs/<run-id>/`:
