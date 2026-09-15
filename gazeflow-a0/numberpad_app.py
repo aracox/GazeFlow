@@ -1,5 +1,5 @@
-"""Sample app: a 0-9 number pad driven by gaze + double-blink, with a
-small output window showing the digits picked so far.
+"""Sample app: a 0-9 number pad driven by gaze + double-blink, with the
+digits picked so far shown as a footer line in the same window.
 
 Two-stage selection instead of one 10-way grid, because a single-stage 5x2
 grid turned out too imprecise in practice (mixing a left/right AND a
@@ -61,7 +61,6 @@ BOX_ARMED_COLOR = (60, 110, 170)      # first blink registered, waiting for the 
 BOX_FLASH_COLOR = (60, 200, 60)       # just confirmed
 
 MAIN_WINDOW_NAME = "GazeFlow Sample: Number Pad"
-OUTPUT_WINDOW_NAME = "GazeFlow Sample: Output"
 
 GROUPS = {"0-4": ["0", "1", "2", "3", "4"], "5-9": ["5", "6", "7", "8", "9"]}
 
@@ -93,7 +92,7 @@ def nearest_box(gaze_xy: tuple[float, float], boxes: list[Box]) -> int:
 
 
 def draw_boxes(win: WindowedUI, boxes: list[Box], gaze_xy: tuple[float, float] | None,
-               active_idx: int | None, armed_idx: int | None, flash_idx: int | None, footer: str) -> np.ndarray:
+               active_idx: int | None, armed_idx: int | None, flash_idx: int | None, entered_digits: str, footer: str) -> np.ndarray:
     import cv2
 
     canvas = win.new_canvas()
@@ -118,14 +117,8 @@ def draw_boxes(win: WindowedUI, boxes: list[Box], gaze_xy: tuple[float, float] |
         x_clamped, y_clamped = min(1.0, max(0.0, gaze_xy[0])), min(1.0, max(0.0, gaze_xy[1]))
         cv2.circle(canvas, (int(x_clamped * win.width), int(y_clamped * win.height)), 5, (0, 0, 255), 2, cv2.LINE_AA)
 
+    put_centered(win, canvas, f"Output: {entered_digits if entered_digits else '-'}", y_frac=0.87, scale=0.6)
     put_centered(win, canvas, footer, y_frac=0.95, scale=0.42)
-    return canvas
-
-
-def draw_output(win: WindowedUI, digits: str) -> np.ndarray:
-    canvas = win.new_canvas()
-    canvas[:] = (20, 20, 20)
-    put_centered(win, canvas, digits if digits else "-", y_frac=0.65, scale=1.3)
     return canvas
 
 
@@ -198,8 +191,6 @@ def main() -> int:
     landmarker = FaceLandmarkerWrapper()
     extractor = FeatureExtractor(camera.actual_width, camera.actual_height)
     win = centered_window(MAIN_WINDOW_NAME, screen_w, screen_h)
-    output_win = WindowedUI(OUTPUT_WINDOW_NAME, width_px=win.width, height_px=int(screen_h * 0.08),
-                             x_px=win.x_px, y_px=win.y_px + win.height + 10)
 
     try:
         blink_threshold = calibration.blink_threshold(
@@ -252,8 +243,8 @@ def main() -> int:
 
             footer = "Pick a group: blink TWICE to select. ESC to quit." if stage == "group" \
                 else "Pick a digit: blink TWICE to select. ESC to quit."
-            win.show(draw_boxes(win, boxes, smoothed_xy, picker.active_idx, picker.armed_idx, picker.flash_idx, footer), wait_ms=1)
-            key = output_win.show(draw_output(output_win, entered_digits), wait_ms=1)
+            canvas = draw_boxes(win, boxes, smoothed_xy, picker.active_idx, picker.armed_idx, picker.flash_idx, entered_digits, footer)
+            key = win.show(canvas, wait_ms=1)
             if key == a0_ui.ESC_KEY:
                 break
 
@@ -265,7 +256,6 @@ def main() -> int:
         camera.release()
         landmarker.close()
         win.close()
-        output_win.close()
 
     return 0
 

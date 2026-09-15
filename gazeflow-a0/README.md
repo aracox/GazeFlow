@@ -177,9 +177,9 @@ At either stage, blink **twice** in quick succession (within 0.8s) on a
 box to select it -- a single blink does nothing, so it takes a deliberate
 double-blink to confirm. The box turns blue after the first blink
 (waiting for the second) and flashes green when confirmed; after a digit
-is confirmed it's appended to the small separate output window below the
-main one, and the picker returns to the group-selection stage for the
-next digit. ESC (in either window) quits both.
+is confirmed it's appended to an "Output: ..." line shown as a footer in
+the same window, and the picker returns to the group-selection stage for
+the next digit. ESC quits.
 
 ## Output Files
 
