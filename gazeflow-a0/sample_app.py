@@ -37,6 +37,7 @@ CONFIRMATION_DISPLAY_SECONDS = 1.5
 BASELINE_DURATION_SECONDS = 2.0
 FACE_LOST_GRACE_SECONDS = 0.4  # tolerate brief tracking dropouts without losing the highlighted side
 WINDOW_SCALE = 0.5  # window is WINDOW_SCALE x WINDOW_SCALE of the screen (0.5x0.5 = quarter-area)
+WINDOW_TOP_FRAC = 0.30  # window's top edge sits this far down the screen (horizontally still centered)
 BLINK_THRESHOLD_FACTOR = 0.55  # stricter than a0.calibration's default 0.65: requires a more definite closure
 BLINK_MIN_CONSECUTIVE_FRAMES = 3  # a single noisy low-EAR frame (e.g. from looking to the side) isn't a blink
 
@@ -51,15 +52,19 @@ class WindowedUI:
     """Same drawing interface as a0.ui.FullscreenUI, but a normal, centered
     window sized to a fraction of the screen instead of fullscreen."""
 
-    def __init__(self, screen_width_px: int, screen_height_px: int, scale: float = WINDOW_SCALE):
+    def __init__(self, screen_width_px: int, screen_height_px: int, scale: float = WINDOW_SCALE,
+                 top_frac: float = WINDOW_TOP_FRAC):
         import cv2
 
         self.width = int(screen_width_px * scale)
         self.height = int(screen_height_px * scale)
         self._cv2 = cv2
+        self._x_offset_norm = (1.0 - scale) / 2.0  # horizontally centered
+        self._y_offset_norm = top_frac
+        self._scale = scale
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
-        x = (screen_width_px - self.width) // 2
-        y = (screen_height_px - self.height) // 2
+        x = int(screen_width_px * self._x_offset_norm)
+        y = int(screen_height_px * self._y_offset_norm)
         cv2.moveWindow(WINDOW_NAME, x, y)
 
     def new_canvas(self) -> np.ndarray:
@@ -72,13 +77,16 @@ class WindowedUI:
     def close(self) -> None:
         self._cv2.destroyWindow(WINDOW_NAME)
 
-    def to_local_norm(self, screen_x_norm: float, screen_y_norm: float, scale: float = WINDOW_SCALE) -> tuple[float, float]:
+    def to_local_norm(self, screen_x_norm: float, screen_y_norm: float) -> tuple[float, float]:
         """The gaze model predicts positions normalized to the FULL screen
-        (that's what it was calibrated against); this window only covers
-        the centered `scale` fraction of it, so cursor drawing needs to
-        remap into the window's own local normalized coordinates."""
-        offset = (1.0 - scale) / 2.0
-        return (screen_x_norm - offset) / scale, (screen_y_norm - offset) / scale
+        (that's what it was calibrated against); this window only covers a
+        `self._scale` fraction of it, offset from the screen's top-left by
+        (_x_offset_norm, _y_offset_norm), so cursor drawing needs to remap
+        into the window's own local normalized coordinates."""
+        return (
+            (screen_x_norm - self._x_offset_norm) / self._scale,
+            (screen_y_norm - self._y_offset_norm) / self._scale,
+        )
 
 
 def load_gaze_model(run_dir: Path) -> tuple[GazeModel, dict]:
