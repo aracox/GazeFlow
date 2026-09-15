@@ -133,9 +133,11 @@ completed run's calibration rather than recalibrating:
 python sample_app.py outputs/<run-id>
 ```
 
-Look at the left half (NO) or right half (YES) of the screen; select by
-blinking while looking at that side, or by holding your gaze there for 2+
-seconds. A short eyes-open baseline is collected at startup (blink
+Runs in a normal (non-fullscreen) window, centered on screen, sized to a
+quarter of the screen's width and height -- not fullscreen. Look at the
+left half (NO) or right half (YES) of the window; blink while looking at a
+side to select it (selection is blink-only; there's no dwell-time
+option). A short eyes-open baseline is collected at startup (blink
 threshold is session/lighting-sensitive, unlike the reused gaze
 calibration). ESC to quit. See `sample_app.py`'s module docstring for
 details.
