@@ -21,6 +21,7 @@ let calibrationCrossPoints: [CalibrationPoint] = [
 
 private let settleSeconds: Double = 0.4
 private let targetValidSamples = 30
+private let prepSeconds: Double = 5.0
 
 struct CalibrationView: View {
     @ObservedObject var tracker: GazeTracker
@@ -28,12 +29,14 @@ struct CalibrationView: View {
     let onComplete: (LinearCalibrationModel) -> Void
 
     @State private var pointIndex = 0
-    @State private var phase: Phase = .settling
+    @State private var phase: Phase = .prep
     @State private var collected: [(Float, Float, Float, Float)] = []
     @State private var allSamples: [(Float, Float, Float, Float)] = []
     @State private var progress: Double = 0
     @State private var completionError: String?
     @State private var isShowingCameraPreview = false
+    @State private var prepStartTime = Date()
+    @State private var prepRemaining = Int(prepSeconds.rounded(.up))
 
     // Created exactly once (the initializer only runs the first time this
     // view's @State is set up, not on every body re-evaluation) -- unlike
@@ -42,7 +45,7 @@ struct CalibrationView: View {
     // since `tracker`'s @Published properties redraw this view ~30-60x/sec.
     @State private var tickTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
-    private enum Phase { case settling, collecting }
+    private enum Phase { case prep, settling, collecting }
 
     var body: some View {
         CameraPreviewOverlay(tracker: tracker, isShowing: $isShowingCameraPreview) {
@@ -55,7 +58,21 @@ struct CalibrationView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                if pointIndex < calibrationCrossPoints.count {
+                if phase == .prep {
+                    VStack(spacing: 12) {
+                        Text("Get ready")
+                            .font(.title2).bold()
+                        Text("\(prepRemaining)")
+                            .font(.system(size: 90, weight: .bold, design: .rounded))
+                        Text("Calibration starts soon -- find a comfortable position and look at the screen")
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.white.opacity(0.8))
+                            .padding(.horizontal, 40)
+                    }
+                    .foregroundColor(.white)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                } else if pointIndex < calibrationCrossPoints.count {
                     let point = calibrationCrossPoints[pointIndex]
                     let center = CGPoint(x: point.x * geo.size.width, y: point.y * geo.size.height)
 
@@ -69,9 +86,11 @@ struct CalibrationView: View {
                         .position(center)
                 }
 
-                Text("Follow the dot with your eyes")
-                    .foregroundColor(.white)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.06)
+                if phase != .prep {
+                    Text("Follow the dot with your eyes")
+                        .foregroundColor(.white)
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.06)
+                }
 
                 Text(diagnosticText)
                     .font(.system(size: 13, design: .monospaced))
@@ -83,7 +102,7 @@ struct CalibrationView: View {
                 BackButton(action: onBack)
                     .position(x: 50, y: 24)
             }
-            .onAppear { startPoint() }
+            .onAppear { startPrepCountdown() }
             .onReceive(tickTimer) { _ in
                 tick(in: geo.size)
             }
@@ -102,6 +121,12 @@ struct CalibrationView: View {
         return lines.joined(separator: "\n")
     }
 
+    private func startPrepCountdown() {
+        phase = .prep
+        prepStartTime = Date()
+        prepRemaining = Int(prepSeconds.rounded(.up))
+    }
+
     private func startPoint() {
         phase = .settling
         collected = []
@@ -113,6 +138,15 @@ struct CalibrationView: View {
 
     private func tick(in size: CGSize) {
         guard !isShowingCameraPreview else { return }
+
+        if phase == .prep {
+            let elapsed = Date().timeIntervalSince(prepStartTime)
+            let remaining = max(0, Int((prepSeconds - elapsed).rounded(.up)))
+            if remaining != prepRemaining { prepRemaining = remaining }
+            if elapsed >= prepSeconds { startPoint() }
+            return
+        }
+
         guard pointIndex < calibrationCrossPoints.count else { return }
         guard phase == .collecting, let reading = tracker.latest, !reading.blinking else { return }
 

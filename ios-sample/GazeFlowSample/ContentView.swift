@@ -5,6 +5,9 @@ struct ContentView: View {
     @State private var stage: Stage = .starting
     @State private var calibrationModel: LinearCalibrationModel?
     @State private var selectionMethod: SelectionMethod = .singleBlink
+    @State private var appMode: AppMode = .yesNo
+    @State private var showGazeDot: Bool = true
+    @State private var gazeSmoothing: GazeSmoothing = .steady
 
     private enum Stage { case starting, notSupported, calibrating, running }
 
@@ -25,8 +28,15 @@ struct ContentView: View {
                 }
             case .running:
                 if let model = calibrationModel {
-                    YesNoView(tracker: tracker, model: model, question: "Yes or No?",
-                              selectionMethod: selectionMethod, onBack: { stage = .starting })
+                    switch appMode {
+                    case .yesNo:
+                        YesNoView(tracker: tracker, model: model, question: "Yes or No?",
+                                  selectionMethod: selectionMethod, showGazeDot: showGazeDot,
+                                  gazeSmoothing: gazeSmoothing, onBack: { stage = .starting })
+                    case .numberPad:
+                        NumberPadView(tracker: tracker, model: model, selectionMethod: selectionMethod,
+                                      showGazeDot: showGazeDot, gazeSmoothing: gazeSmoothing, onBack: { stage = .starting })
+                    }
                 }
             }
         }
@@ -45,9 +55,20 @@ struct ContentView: View {
     private var startScreen: some View {
         VStack(spacing: 24) {
             Text("GazeFlow Sample").font(.largeTitle).bold()
-            Text("Follow a dot to calibrate, then look left/right to answer Yes or No.")
+            Text(appMode.instructions)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+
+            VStack(spacing: 10) {
+                Text("Mode:").font(.headline)
+                Picker("Mode", selection: $appMode) {
+                    ForEach(AppMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 420)
+            }
 
             VStack(spacing: 10) {
                 Text("Select by:").font(.headline)
@@ -59,6 +80,23 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 420)
             }
+
+            VStack(spacing: 10) {
+                Text("Cursor smoothing:").font(.headline)
+                Picker("Cursor smoothing", selection: $gazeSmoothing) {
+                    ForEach(GazeSmoothing.allCases) { level in
+                        Text(level.rawValue).tag(level)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 420)
+                Text("More steady reduces jitter but follows your eyes a bit slower.")
+                    .font(.footnote)
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            Toggle("Show gaze dot", isOn: $showGazeDot)
+                .frame(maxWidth: 260)
 
             Button("Start") {
                 guard tracker.isSupported else {

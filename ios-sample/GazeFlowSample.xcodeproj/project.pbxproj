@@ -11,7 +11,10 @@
 		0ED4697836076D1724CD8F4B /* GazeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CF18E9299C6E1964757FF2 /* GazeTracker.swift */; };
 		23C08D33428495557B8460A4 /* BackButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EE5D7CAA8CE842ABE35808 /* BackButton.swift */; };
 		3421EFB8C8A84650484BADA3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B867B8893D53FE3A4B329DC7 /* ContentView.swift */; };
+		4C457840A22B16FF528C00FF /* GazeSmoothing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F33128DD60AE9DA2FC394A /* GazeSmoothing.swift */; };
+		4F91F6EA6604D7FBE1764766 /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E8CD69F4B9F6FCD6703B91 /* AppMode.swift */; };
 		54AE3ABCD255908C42B31E2F /* CalibrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B920512E47DF815079DFA7E8 /* CalibrationView.swift */; };
+		5DF09BC6E241DAE4FA9654CF /* NumberPadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808D45F039C5398958101341 /* NumberPadView.swift */; };
 		688130D32C891F09D6B1D069 /* GazeFlowSampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0617353591F7303ED44BCD /* GazeFlowSampleApp.swift */; };
 		6D214D118CE6DFF280B2DCA3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CB58D2F42323451B41EBE406 /* Assets.xcassets */; };
 		7FFDF0BE1FE9916DE637E4AD /* SelectionMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FB67A7B97E29EF87C83C07 /* SelectionMethod.swift */; };
@@ -23,8 +26,10 @@
 		0590E5060116AD93E7E177DB /* CameraPreviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewPanel.swift; sourceTree = "<group>"; };
 		1A0617353591F7303ED44BCD /* GazeFlowSampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GazeFlowSampleApp.swift; sourceTree = "<group>"; };
 		33EE5D7CAA8CE842ABE35808 /* BackButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackButton.swift; sourceTree = "<group>"; };
+		41F33128DD60AE9DA2FC394A /* GazeSmoothing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GazeSmoothing.swift; sourceTree = "<group>"; };
 		4545A25E30159276993503F7 /* YesNoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YesNoView.swift; sourceTree = "<group>"; };
 		6C9F1DC858014FE522258EBF /* LinearCalibrationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearCalibrationModel.swift; sourceTree = "<group>"; };
+		808D45F039C5398958101341 /* NumberPadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberPadView.swift; sourceTree = "<group>"; };
 		80FB67A7B97E29EF87C83C07 /* SelectionMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionMethod.swift; sourceTree = "<group>"; };
 		8BF5F873D3353144590C8846 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B867B8893D53FE3A4B329DC7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -32,6 +37,7 @@
 		C0CF18E9299C6E1964757FF2 /* GazeTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GazeTracker.swift; sourceTree = "<group>"; };
 		C90EBCD9872A2E328646D7C4 /* GazeFlowSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GazeFlowSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB58D2F42323451B41EBE406 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F2E8CD69F4B9F6FCD6703B91 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -54,15 +60,18 @@
 		E1847ED01CCDCA07D0E3CB6A /* GazeFlowSample */ = {
 			isa = PBXGroup;
 			children = (
+				F2E8CD69F4B9F6FCD6703B91 /* AppMode.swift */,
 				CB58D2F42323451B41EBE406 /* Assets.xcassets */,
 				33EE5D7CAA8CE842ABE35808 /* BackButton.swift */,
 				B920512E47DF815079DFA7E8 /* CalibrationView.swift */,
 				0590E5060116AD93E7E177DB /* CameraPreviewPanel.swift */,
 				B867B8893D53FE3A4B329DC7 /* ContentView.swift */,
 				1A0617353591F7303ED44BCD /* GazeFlowSampleApp.swift */,
+				41F33128DD60AE9DA2FC394A /* GazeSmoothing.swift */,
 				C0CF18E9299C6E1964757FF2 /* GazeTracker.swift */,
 				8BF5F873D3353144590C8846 /* Info.plist */,
 				6C9F1DC858014FE522258EBF /* LinearCalibrationModel.swift */,
+				808D45F039C5398958101341 /* NumberPadView.swift */,
 				80FB67A7B97E29EF87C83C07 /* SelectionMethod.swift */,
 				4545A25E30159276993503F7 /* YesNoView.swift */,
 			);
@@ -139,13 +148,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4F91F6EA6604D7FBE1764766 /* AppMode.swift in Sources */,
 				23C08D33428495557B8460A4 /* BackButton.swift in Sources */,
 				54AE3ABCD255908C42B31E2F /* CalibrationView.swift in Sources */,
 				BFFED0E1C5CAEF2D5520E8DD /* CameraPreviewPanel.swift in Sources */,
 				3421EFB8C8A84650484BADA3 /* ContentView.swift in Sources */,
 				688130D32C891F09D6B1D069 /* GazeFlowSampleApp.swift in Sources */,
+				4C457840A22B16FF528C00FF /* GazeSmoothing.swift in Sources */,
 				0ED4697836076D1724CD8F4B /* GazeTracker.swift in Sources */,
 				08DEBE03266A2AE16A3127EC /* LinearCalibrationModel.swift in Sources */,
+				5DF09BC6E241DAE4FA9654CF /* NumberPadView.swift in Sources */,
 				7FFDF0BE1FE9916DE637E4AD /* SelectionMethod.swift in Sources */,
 				E8483CE07F9CE7BB36A89D71 /* YesNoView.swift in Sources */,
 			);

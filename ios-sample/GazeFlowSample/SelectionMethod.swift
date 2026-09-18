@@ -5,7 +5,7 @@ import Foundation
 enum SelectionMethod: String, CaseIterable, Identifiable {
     case singleBlink = "Blink"
     case doubleBlink = "Blink Twice"
-    case dwell = "Look 3s"
+    case dwell = "Look 2s"
 
     var id: String { rawValue }
 
@@ -13,7 +13,7 @@ enum SelectionMethod: String, CaseIterable, Identifiable {
         switch self {
         case .singleBlink: return "Look + blink to select."
         case .doubleBlink: return "Look + blink twice quickly to select."
-        case .dwell: return "Hold your gaze for 3s to select."
+        case .dwell: return "Hold your gaze for 2s to select."
         }
     }
 }

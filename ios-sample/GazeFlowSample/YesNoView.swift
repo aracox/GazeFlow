@@ -8,15 +8,16 @@ import SwiftUI
 /// instead of picking one for everyone).
 private let blinkMinConsecutiveFrames = 3
 private let doubleBlinkWindowSeconds: TimeInterval = 0.8
-private let dwellSeconds: TimeInterval = 3.0
+private let dwellSeconds: TimeInterval = 2.0
 private let confirmationDisplaySeconds = 1.2
-private let gazeSmoothingAlpha: Float = 0.15
 
 struct YesNoView: View {
     @ObservedObject var tracker: GazeTracker
     let model: LinearCalibrationModel
     let question: String
     let selectionMethod: SelectionMethod
+    let showGazeDot: Bool
+    let gazeSmoothing: GazeSmoothing
     let onBack: () -> Void
 
     @State private var smoothedX: Float = 0.5
@@ -76,8 +77,10 @@ struct YesNoView: View {
                         dwellRing(for: z, geo: geo)
                     }
 
-                    Circle().stroke(Color.blue, lineWidth: 3).frame(width: 20, height: 20)
-                        .position(x: CGFloat(smoothedX) * geo.size.width, y: CGFloat(smoothedY) * geo.size.height)
+                    if showGazeDot {
+                        Circle().stroke(Color.red, lineWidth: 3).frame(width: 20, height: 20)
+                            .position(x: CGFloat(smoothedX) * geo.size.width, y: CGFloat(smoothedY) * geo.size.height)
+                    }
                 }
 
                 Text("Output: \(answerHistory.isEmpty ? "-" : answerHistory.joined(separator: " "))")
@@ -130,16 +133,23 @@ struct YesNoView: View {
         guard confirmedZone == nil else { return }
         guard let reading = tracker.latest else { return }
 
-        let (predX, predY) = model.predict(lookAtX: reading.lookAtX, lookAtY: reading.lookAtY)
-        smoothedX = gazeSmoothingAlpha * predX + (1 - gazeSmoothingAlpha) * smoothedX
-        smoothedY = gazeSmoothingAlpha * predY + (1 - gazeSmoothingAlpha) * smoothedY
-        let newZone: Zone = smoothedX >= 0.5 ? .yes : .no
+        // lookAtPoint drifts while the eyes are physically closing/opening,
+        // so only update the tracked position and zone while eyes are open
+        // -- otherwise a blink can slide the zone to the wrong side right
+        // as it's detected, confirming an answer the user never looked at.
+        if !reading.blinking {
+            let (predX, predY) = model.predict(lookAtX: reading.lookAtX, lookAtY: reading.lookAtY)
+            let alpha = gazeSmoothing.alpha
+            smoothedX = alpha * predX + (1 - alpha) * smoothedX
+            smoothedY = alpha * predY + (1 - alpha) * smoothedY
+            let newZone: Zone = smoothedX >= 0.5 ? .yes : .no
 
-        if newZone != zone {
-            zone = newZone
-            dwellStartTime = Date()
-            firstBlinkTime = nil
-            armedZone = nil
+            if newZone != zone {
+                zone = newZone
+                dwellStartTime = Date()
+                firstBlinkTime = nil
+                armedZone = nil
+            }
         }
 
         var blinkEvent = false
