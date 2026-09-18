@@ -18,6 +18,7 @@
 		688130D32C891F09D6B1D069 /* GazeFlowSampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0617353591F7303ED44BCD /* GazeFlowSampleApp.swift */; };
 		6D214D118CE6DFF280B2DCA3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CB58D2F42323451B41EBE406 /* Assets.xcassets */; };
 		7FFDF0BE1FE9916DE637E4AD /* SelectionMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FB67A7B97E29EF87C83C07 /* SelectionMethod.swift */; };
+		90ECA10B26F1606F07762806 /* WordPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58A19F27FE9AB706CC5D305 /* WordPickerView.swift */; };
 		BFFED0E1C5CAEF2D5520E8DD /* CameraPreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0590E5060116AD93E7E177DB /* CameraPreviewPanel.swift */; };
 		E8483CE07F9CE7BB36A89D71 /* YesNoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4545A25E30159276993503F7 /* YesNoView.swift */; };
 /* End PBXBuildFile section */
@@ -38,6 +39,7 @@
 		C90EBCD9872A2E328646D7C4 /* GazeFlowSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GazeFlowSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB58D2F42323451B41EBE406 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2E8CD69F4B9F6FCD6703B91 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
+		F58A19F27FE9AB706CC5D305 /* WordPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordPickerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -73,6 +75,7 @@
 				6C9F1DC858014FE522258EBF /* LinearCalibrationModel.swift */,
 				808D45F039C5398958101341 /* NumberPadView.swift */,
 				80FB67A7B97E29EF87C83C07 /* SelectionMethod.swift */,
+				F58A19F27FE9AB706CC5D305 /* WordPickerView.swift */,
 				4545A25E30159276993503F7 /* YesNoView.swift */,
 			);
 			path = GazeFlowSample;
@@ -159,6 +162,7 @@
 				08DEBE03266A2AE16A3127EC /* LinearCalibrationModel.swift in Sources */,
 				5DF09BC6E241DAE4FA9654CF /* NumberPadView.swift in Sources */,
 				7FFDF0BE1FE9916DE637E4AD /* SelectionMethod.swift in Sources */,
+				90ECA10B26F1606F07762806 /* WordPickerView.swift in Sources */,
 				E8483CE07F9CE7BB36A89D71 /* YesNoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

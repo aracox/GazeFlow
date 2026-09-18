@@ -36,6 +36,9 @@ struct ContentView: View {
                     case .numberPad:
                         NumberPadView(tracker: tracker, model: model, selectionMethod: selectionMethod,
                                       showGazeDot: showGazeDot, gazeSmoothing: gazeSmoothing, onBack: { stage = .starting })
+                    case .wordPicker:
+                        WordPickerView(tracker: tracker, model: model, selectionMethod: selectionMethod,
+                                        showGazeDot: showGazeDot, gazeSmoothing: gazeSmoothing, onBack: { stage = .starting })
                     }
                 }
             }
