@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Fresh in-app calibration, same idea as gaze_ui_common.py's
 /// cross_calibration_points()/run_calibration(): calibrate against THIS
@@ -8,7 +9,7 @@ import SwiftUI
 /// sit, not a generic 5-point cross -- a purely linear calibration model
 /// only strictly needs 2 points to define its slope, but concentrating the
 /// training data at the exact spots the user will later look at biases the
-/// fit's low-error region to land where it's actually needed (e.g. all 6
+/// fit's low-error region to land where it's actually needed (e.g. all 3
 /// narrow digit x-positions for Numbers, vs. just the 2 wide Yes/No zones).
 /// A couple of off-row points are still included in every mode so the
 /// per-axis 3-parameter fit (bias + rawX + rawY) has real Y variation to
@@ -39,8 +40,6 @@ private func calibrationPoints(for mode: AppMode) -> [CalibrationPoint] {
     return points.shuffled()
 }
 
-private let settleSeconds: Double = 0.4
-private let targetValidSamples = 30
 private let prepSeconds: Double = 5.0
 
 struct CalibrationView: View {
@@ -52,12 +51,13 @@ struct CalibrationView: View {
     @State private var points: [CalibrationPoint]
     @State private var pointIndex = 0
     @State private var phase: Phase = .prep
-    @State private var collected: [(Float, Float, Float, Float)] = []
-    @State private var allSamples: [(Float, Float, Float, Float)] = []
+    @State private var capture = CalibrationCapture()
+    @State private var samplesByPoint: [String: [CalibrationSample]] = [:]
+    @State private var pointStarted = ProcessInfo.processInfo.systemUptime
     @State private var progress: Double = 0
     @State private var completionError: String?
     @State private var isShowingCameraPreview = false
-    @State private var prepStartTime = Date()
+    @State private var prepStartTime = ProcessInfo.processInfo.systemUptime
     @State private var prepRemaining = Int(prepSeconds.rounded(.up))
 
     init(tracker: GazeTracker, appMode: AppMode, onBack: @escaping () -> Void, onComplete: @escaping (LinearCalibrationModel) -> Void) {
@@ -75,7 +75,7 @@ struct CalibrationView: View {
     // since `tracker`'s @Published properties redraw this view ~30-60x/sec.
     @State private var tickTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
-    private enum Phase { case prep, settling, collecting }
+    private enum Phase { case prep, collecting, finished, failed }
 
     var body: some View {
         CameraPreviewOverlay(tracker: tracker, isShowing: $isShowingCameraPreview) {
@@ -117,7 +117,8 @@ struct CalibrationView: View {
                 }
 
                 if phase != .prep {
-                    Text("Follow the dot with your eyes")
+                    Text(phase == .failed ? "Calibration needs another try. Go back to restart." :
+                         "Follow the dot with your eyes")
                         .foregroundColor(.white)
                         .position(x: geo.size.width / 2, y: geo.size.height * 0.06)
                 }
@@ -134,72 +135,81 @@ struct CalibrationView: View {
             }
             .onAppear { startPrepCountdown() }
             .onReceive(tickTimer) { _ in
-                tick(in: geo.size)
+                tick()
             }
         }
     }
 
     private var diagnosticText: String {
         let hasReading = tracker.latest != nil ? "yes" : "no"
-        let line0 = "point: \(pointIndex)/\(points.count), collected: \(collected.count), total: \(allSamples.count), phase: \(phase)"
+        let line0 = "point: \(pointIndex)/\(points.count), collected: \(capture.samples.count), total: \(samplesByPoint.values.reduce(0) { $0 + $1.count }), phase: \(phase)"
         let line1 = "reading now: \(hasReading), blinking: \(tracker.latest?.blinking.description ?? "n/a"), ever: \(tracker.successfulReadingCount)"
         let line2 = "frames: \(tracker.frameCallbackCount), anchors: \(tracker.lastFrameAnchorCount), cam: \(tracker.cameraTrackingState)"
         var lines = [line0, line1, line2]
         if let completionError {
-            lines.append("FIT FAILED: \(completionError)")
+            lines.append(completionError)
         }
         return lines.joined(separator: "\n")
     }
 
     private func startPrepCountdown() {
         phase = .prep
-        prepStartTime = Date()
+        prepStartTime = ProcessInfo.processInfo.systemUptime
         prepRemaining = Int(prepSeconds.rounded(.up))
     }
 
     private func startPoint() {
-        phase = .settling
-        collected = []
+        phase = .collecting
+        capture.reset()
         progress = 0
-        DispatchQueue.main.asyncAfter(deadline: .now() + settleSeconds) {
-            phase = .collecting
-        }
+        pointStarted = ProcessInfo.processInfo.systemUptime
     }
 
-    private func tick(in size: CGSize) {
-        guard !isShowingCameraPreview else { return }
+    private func tick() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard !isShowingCameraPreview else {
+            capture.reset()
+            progress = 0
+            pointStarted = now
+            prepStartTime = now
+            return
+        }
 
         if phase == .prep {
-            let elapsed = Date().timeIntervalSince(prepStartTime)
-            let remaining = max(0, Int((prepSeconds - elapsed).rounded(.up)))
-            if remaining != prepRemaining { prepRemaining = remaining }
+            let elapsed = now - prepStartTime
+            prepRemaining = max(0, Int((prepSeconds - elapsed).rounded(.up)))
             if elapsed >= prepSeconds { startPoint() }
             return
         }
 
-        guard pointIndex < points.count else { return }
-        guard phase == .collecting, let reading = tracker.latest, !reading.blinking else { return }
-
-        let point = points[pointIndex]
-        collected.append((reading.lookAtX, reading.lookAtY, Float(point.x), Float(point.y)))
-        progress = min(1.0, Double(collected.count) / Double(targetValidSamples))
-
-        if collected.count >= targetValidSamples {
-            finishPoint()
+        guard phase == .collecting, pointIndex < points.count else { return }
+        if now - pointStarted > CalibrationCapture.maximumPointDuration {
+            phase = .failed
+            completionError = "Could not read this point. Check the camera view, then go back and retry."
+            return
         }
+        let point = points[pointIndex]
+        let accepted = capture.append(tracker.latest, now: now, enabled: !tracker.trackingLost,
+                                      targetX: Float(point.x), targetY: Float(point.y))
+        progress = min(0.95, Double(capture.samples.count) / Double(CalibrationCapture.targetSampleCount))
+        guard let accepted else { return }
+        finishPoint(accepted)
     }
 
-    private func finishPoint() {
-        allSamples.append(contentsOf: collected)
+    private func finishPoint(_ samples: [CalibrationSample]) {
+        samplesByPoint[points[pointIndex].id] = samples
         pointIndex += 1
-        if pointIndex >= points.count {
-            if let model = LinearCalibrationModel(samples: allSamples) {
-                onComplete(model)
-            } else {
-                completionError = "LinearCalibrationModel init returned nil with \(allSamples.count) samples"
-            }
-        } else {
-            startPoint()
+        guard pointIndex >= points.count else { startPoint(); return }
+
+        let allSamples = samplesByPoint.keys.sorted().flatMap { samplesByPoint[$0] ?? [] }
+        guard let model = LinearCalibrationModel(samples: allSamples) else {
+            phase = .failed
+            completionError = "Some left/right points overlapped or were reversed. Go back and recalibrate."
+            return
         }
+        // One pass completes calibration. Do not silently add validation or
+        // retry rounds between this screen and the selected interaction mode.
+        phase = .finished
+        onComplete(model)
     }
 }

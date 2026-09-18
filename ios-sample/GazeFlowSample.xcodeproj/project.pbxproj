@@ -21,6 +21,9 @@
 		90ECA10B26F1606F07762806 /* WordPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58A19F27FE9AB706CC5D305 /* WordPickerView.swift */; };
 		BFFED0E1C5CAEF2D5520E8DD /* CameraPreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0590E5060116AD93E7E177DB /* CameraPreviewPanel.swift */; };
 		E8483CE07F9CE7BB36A89D71 /* YesNoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4545A25E30159276993503F7 /* YesNoView.swift */; };
+		9286D0F9E846D56EF4ACAE7A /* GazeReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048773CF0F3143D8EC6CA135 /* GazeReading.swift */; };
+		770A9828CB128C77FC4A1CA9 /* CalibrationQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B06C5A0D88352D60DFC7C7 /* CalibrationQuality.swift */; };
+		4A0459B761B5ADC25BCB57EA /* NumberSelectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0D1EC608251953466BF112 /* NumberSelectionState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +43,9 @@
 		CB58D2F42323451B41EBE406 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2E8CD69F4B9F6FCD6703B91 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
 		F58A19F27FE9AB706CC5D305 /* WordPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordPickerView.swift; sourceTree = "<group>"; };
+		048773CF0F3143D8EC6CA135 /* GazeReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GazeReading.swift; sourceTree = "<group>"; };
+		12B06C5A0D88352D60DFC7C7 /* CalibrationQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationQuality.swift; sourceTree = "<group>"; };
+		2D0D1EC608251953466BF112 /* NumberSelectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberSelectionState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -71,6 +77,9 @@
 				1A0617353591F7303ED44BCD /* GazeFlowSampleApp.swift */,
 				41F33128DD60AE9DA2FC394A /* GazeSmoothing.swift */,
 				C0CF18E9299C6E1964757FF2 /* GazeTracker.swift */,
+				2D0D1EC608251953466BF112 /* NumberSelectionState.swift */,
+				12B06C5A0D88352D60DFC7C7 /* CalibrationQuality.swift */,
+				048773CF0F3143D8EC6CA135 /* GazeReading.swift */,
 				8BF5F873D3353144590C8846 /* Info.plist */,
 				6C9F1DC858014FE522258EBF /* LinearCalibrationModel.swift */,
 				808D45F039C5398958101341 /* NumberPadView.swift */,
@@ -159,6 +168,9 @@
 				688130D32C891F09D6B1D069 /* GazeFlowSampleApp.swift in Sources */,
 				4C457840A22B16FF528C00FF /* GazeSmoothing.swift in Sources */,
 				0ED4697836076D1724CD8F4B /* GazeTracker.swift in Sources */,
+				4A0459B761B5ADC25BCB57EA /* NumberSelectionState.swift in Sources */,
+				770A9828CB128C77FC4A1CA9 /* CalibrationQuality.swift in Sources */,
+				9286D0F9E846D56EF4ACAE7A /* GazeReading.swift in Sources */,
 				08DEBE03266A2AE16A3127EC /* LinearCalibrationModel.swift in Sources */,
 				5DF09BC6E241DAE4FA9654CF /* NumberPadView.swift in Sources */,
 				7FFDF0BE1FE9916DE637E4AD /* SelectionMethod.swift in Sources */,

@@ -11,7 +11,7 @@ enum AppMode: String, CaseIterable, Identifiable {
     var instructions: String {
         switch self {
         case .yesNo: return "Follow a dot to calibrate, then look left/right to answer Yes or No."
-        case .numberPad: return "Follow a dot to calibrate, then look at a digit (0-5) to pick it."
+        case .numberPad: return "Follow a dot to calibrate, then look at a digit (0-2) to pick it."
         case .wordPicker: return "Follow a dot to calibrate, then look left/right to narrow down to a word."
         }
     }

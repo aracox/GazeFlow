@@ -23,12 +23,10 @@ private extension Double {
 /// beyond the collected range, with a final clamp to keep results on
 /// screen.
 ///
-/// Y is never used for actual selection in this app -- every mode's real
-/// targets sit on one horizontal row, so box/zone selection only reads
-/// predicted X -- so it keeps a plain standardized ridge-regularized
-/// linear fit (same principle as a0/model.py's sklearn Ridge pipeline,
-/// hand-rolled since there's no scikit-learn on iOS); it only drives the
-/// optional debug gaze dot's vertical position.
+/// All targets sit on one horizontal row, so X distinguishes the choices.
+/// Y drives the debug dot and a broad off-row exclusion in Numbers; it
+/// keeps a plain standardized ridge-regularized linear fit (same principle
+/// as a0/model.py's sklearn Ridge pipeline, hand-rolled for iOS).
 struct LinearCalibrationModel {
     private struct Anchor { let rawX: Double; let targetX: Double }
 
@@ -48,23 +46,29 @@ struct LinearCalibrationModel {
 
     /// samples: (lookAtX, lookAtY, targetXNorm, targetYNorm)
     init?(samples: [(Float, Float, Float, Float)], ridgeLambda: Double = 1.0) {
-        guard samples.count >= 3 else { return nil }
+        guard samples.count >= 3, ridgeLambda.isFinite, ridgeLambda >= 0,
+              samples.allSatisfy({ $0.0.isFinite && $0.1.isFinite && $0.2.isFinite && $0.3.isFinite }) else { return nil }
 
-        // Average raw lookAtX per distinct calibrated target X (points that
-        // share the same target column, like Numbers' off-row top/bottom
-        // stability points sharing x=0.5 with no digit, get merged into one
-        // anchor rather than needing an exact digit at every column).
-        var sumsByTargetX: [Float: (sum: Double, count: Int)] = [:]
-        for (lx, _, tx, _) in samples {
-            var entry = sumsByTargetX[tx] ?? (0, 0)
-            entry.sum += Double(lx)
-            entry.count += 1
-            sumsByTargetX[tx] = entry
+        // Horizontal selection uses only targets on the actual interaction row.
+        // Top/bottom samples train Y, but must not invent an extra X anchor.
+        var valuesByTargetX: [Float: [Float]] = [:]
+        for (lx, _, tx, ty) in samples where abs(ty - 0.5) < 0.001 {
+            valuesByTargetX[tx, default: []].append(lx)
         }
-        guard sumsByTargetX.count >= 2 else { return nil }
-        xAnchors = sumsByTargetX
-            .map { tx, entry in Anchor(rawX: entry.sum / Double(entry.count), targetX: Double(tx)) }
-            .sorted { $0.rawX < $1.rawX }
+        let targets = valuesByTargetX.keys.sorted()
+        guard targets.count >= 2 else { return nil }
+        let anchors = targets.map { Anchor(rawX: Double(CalibrationQuality.median(valuesByTargetX[$0]!)), targetX: Double($0)) }
+        let direction = anchors.last!.rawX > anchors.first!.rawX ? 1.0 : -1.0
+        let totalRange = abs(anchors.last!.rawX - anchors.first!.rawX)
+        guard totalRange > 0.00001 else { return nil }
+        for i in 1..<anchors.count {
+            let separation = direction * (anchors[i].rawX - anchors[i - 1].rawX)
+            // Reject reversed/coincident medians and near-zero interpolation
+            // spans. Within-point noise alone is not a reason to block entry;
+            // live selection already filters spikes and requires stable gaze.
+            guard separation > max(totalRange * 0.02, 0.000001) else { return nil }
+        }
+        xAnchors = anchors.sorted { $0.rawX < $1.rawX }
 
         let n = Double(samples.count)
         let sumX = samples.reduce(0.0) { $0 + Double($1.0) }
@@ -88,24 +92,23 @@ struct LinearCalibrationModel {
                 atbY[i] += row[i] * Double(ty)
             }
         }
-        for i in 0..<3 { ata[i][i] += ridgeLambda }
+        for i in 1..<3 { ata[i][i] += ridgeLambda }
 
         guard let wy = Self.solve(ata, atbY) else { return nil }
         weightsY = SIMD3(wy[0], wy[1], wy[2])
     }
 
-    func predict(lookAtX: Float, lookAtY: Float) -> (x: Float, y: Float) {
+    func predict(lookAtX: Float, lookAtY: Float, clampToScreen: Bool = true) -> (x: Float, y: Float) {
         let x = Self.interpolateX(Double(lookAtX), anchors: xAnchors)
 
         let zx = (Double(lookAtX) - meanX) / stdX
         let zy = (Double(lookAtY) - meanY) / stdY
         let y = (SIMD3(1.0, zx, zy) * weightsY).sum()
 
-        // Screen position is only ever meaningfully within [0,1] -- clamp
-        // so a beyond-calibration-range reading pins the cursor to the
-        // edge instead of drawing (and selecting against) a point off the
-        // visible screen.
-        return (Float(x.clamped(to: 0...1)), Float(y.clamped(to: 0...1)))
+        // Rendering can clamp the dot. Numbers uses the unbounded estimate
+        // to distinguish horizontal overshoot (an outer digit) from vertical
+        // gaze outside the interaction row.
+        return clampToScreen ? (Float(x.clamped(to: 0...1)), Float(y.clamped(to: 0...1))) : (Float(x), Float(y))
     }
 
     private static func interpolateX(_ rawX: Double, anchors: [Anchor]) -> Double {

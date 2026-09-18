@@ -16,11 +16,7 @@ import CoreImage
 ///     already calibrated by Apple across users -- no per-session baseline
 ///     EAR collection needed like the Python EAR-threshold approach.
 final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
-    struct Reading {
-        let lookAtX: Float
-        let lookAtY: Float
-        let blinking: Bool
-    }
+    typealias Reading = GazeReading
 
     @Published private(set) var latest: Reading?
     @Published private(set) var isSupported: Bool = ARFaceTrackingConfiguration.isSupported
@@ -58,6 +54,8 @@ final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
     private let blinkThreshold: Float = 0.5
 
     func start() {
+        invalidateReading()
+        errorMessage = nil
         guard isSupported else {
             errorMessage = "ARFaceTrackingConfiguration.isSupported == false on this device"
             return
@@ -90,6 +88,7 @@ final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
     private func runSession() {
         let config = ARFaceTrackingConfiguration()
         config.isLightEstimationEnabled = false
+        session.delegateQueue = .main
         session.delegate = self
         session.run(config, options: [.resetTracking, .removeExistingAnchors])
     }
@@ -106,24 +105,17 @@ final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
 
     func stop() {
         session.pause()
+        invalidateReading()
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
+        invalidateReading()
         errorMessage = error.localizedDescription
     }
 
     func sessionWasInterrupted(_ session: ARSession) {
+        invalidateReading()
         errorMessage = "Session interrupted"
-    }
-
-    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        guard let faceAnchor = anchors.compactMap({ $0 as? ARFaceAnchor }).first else { return }
-        update(from: faceAnchor)
-    }
-
-    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-        guard let faceAnchor = anchors.compactMap({ $0 as? ARFaceAnchor }).first else { return }
-        update(from: faceAnchor)
     }
 
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
@@ -148,10 +140,12 @@ final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
         }
 
         guard let faceAnchor else {
-            trackingLost = true
+            invalidateReading()
             return
         }
-        update(from: faceAnchor)
+        // Publish only from the frame callback; anchor callbacks can describe
+        // the same camera frame and must not count as additional samples.
+        update(from: faceAnchor, timestamp: frame.timestamp)
     }
 
     /// Reprojects the tracked face -- its overall position, each eye, and a
@@ -212,10 +206,16 @@ final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
-    private func update(from faceAnchor: ARFaceAnchor) {
+    private func invalidateReading() {
+        trackingLost = true
+        latest = nil
+    }
+
+    private func update(from faceAnchor: ARFaceAnchor, timestamp: TimeInterval) {
         trackingLost = !faceAnchor.isTracked
         guard faceAnchor.isTracked else {
             faceAnchorSeenButUntrackedCount += 1
+            invalidateReading()
             return
         }
 
@@ -224,7 +224,12 @@ final class GazeTracker: NSObject, ObservableObject, ARSessionDelegate {
         let rightBlink = faceAnchor.blendShapes[.eyeBlinkRight]?.floatValue ?? 0
         let blinking = ((leftBlink + rightBlink) / 2) >= blinkThreshold
 
-        latest = Reading(lookAtX: lookAt.x, lookAtY: lookAt.y, blinking: blinking)
+        let reading = Reading(lookAtX: lookAt.x, lookAtY: lookAt.y, blinking: blinking, timestamp: timestamp)
+        guard reading.isFresh(at: ProcessInfo.processInfo.systemUptime) else {
+            invalidateReading()
+            return
+        }
+        latest = reading
         successfulReadingCount += 1
     }
 }

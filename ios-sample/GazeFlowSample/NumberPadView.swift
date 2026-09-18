@@ -1,18 +1,14 @@
 import SwiftUI
+import Combine
 
-/// Single-stage digit picker for a small test range (0-5): one row of boxes
+/// Single-stage digit picker for a small test range (0-2): one row of boxes
 /// spanning the full width, so only left/right gaze position matters. Each
 /// selection appends to the output and the view stays put -- it does not
 /// reset or navigate back to the start menu, so you can keep picking digits
 /// in a row.
-private let blinkMinConsecutiveFrames = 3
-private let blinkSettleFrames = 3
-private let doubleBlinkWindowSeconds: TimeInterval = 0.8
-private let dwellSeconds: TimeInterval = 2.0
 private let flashDisplaySeconds: TimeInterval = 0.4
-private let digitRowMargin: CGFloat = 0.10
 
-private let digits: [String] = ["0", "1", "2", "3", "4", "5"]
+private let digits: [String] = ["0", "1", "2"]
 
 private struct NumberBox {
     let label: String
@@ -24,9 +20,9 @@ private struct NumberBox {
 
 private func digitBoxes() -> [NumberBox] {
     let n = digits.count
-    let boxW = (1 - 2 * digitRowMargin) / CGFloat(n) * 0.85
+    let boxW = 1 / CGFloat(n)
     return digits.enumerated().map { i, d in
-        let x = digitRowMargin + (1 - 2 * digitRowMargin) * CGFloat(i) / CGFloat(n - 1)
+        let x = (CGFloat(i) + 0.5) * boxW
         return NumberBox(label: d, cx: x, cy: 0.5, w: boxW, h: 0.6)
     }
 }
@@ -45,19 +41,12 @@ struct NumberPadView: View {
     let gazeSmoothing: GazeSmoothing
     let onBack: () -> Void
 
-    @State private var smoothedX: Float = 0.5
-    @State private var smoothedY: Float = 0.5
+    @State private var selection = NumberSelectionState(targets: numberPadTargetXPositions().map { Float($0) })
     @State private var boxes: [NumberBox] = digitBoxes()
-    @State private var activeIndex: Int?
-    @State private var armedIndex: Int?
     @State private var flashIndex: Int?
     @State private var flashUntil: Date?
     @State private var outputDigits: String = ""
 
-    @State private var eyesClosedRun = 0
-    @State private var openFrameStreak = 0
-    @State private var firstBlinkTime: Date?
-    @State private var dwellStartTime: Date?
     @State private var isShowingCameraPreview = false
 
     // See CalibrationView's tickTimer for why this must be @State, not an
@@ -79,13 +68,13 @@ struct NumberPadView: View {
                     boxView(box, index: index, geo: geo)
                 }
 
-                if selectionMethod == .dwell, let active = activeIndex {
+                if selectionMethod == .dwell, let active = selection.activeIndex {
                     dwellRing(for: boxes[active], geo: geo)
                 }
 
                 if showGazeDot {
                     Circle().stroke(Color.red, lineWidth: 3).frame(width: 20, height: 20)
-                        .position(x: CGFloat(smoothedX) * geo.size.width, y: CGFloat(smoothedY) * geo.size.height)
+                        .position(x: CGFloat(min(1, max(0, selection.smoothedX))) * geo.size.width, y: CGFloat(min(1, max(0, selection.smoothedY))) * geo.size.height)
                 }
 
                 Text("Pick a digit: \(selectionMethod.instructions)")
@@ -98,7 +87,7 @@ struct NumberPadView: View {
                     .foregroundColor(.white)
                     .position(x: geo.size.width / 2, y: geo.size.height * 0.87)
 
-                Text(String(format: "x: %.3f, y: %.3f", smoothedX, smoothedY))
+                Text(String(format: "x: %.3f, y: %.3f", selection.smoothedX, selection.smoothedY))
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.yellow)
                     .position(x: geo.size.width / 2, y: geo.size.height * 0.93)
@@ -116,9 +105,9 @@ struct NumberPadView: View {
         var fill = Color(white: 0.24)
         if flashIndex == index {
             fill = Color.green
-        } else if selectionMethod == .doubleBlink, armedIndex == index {
+        } else if selectionMethod == .doubleBlink, selection.armedIndex == index {
             fill = Color.blue.opacity(0.85)
-        } else if activeIndex == index {
+        } else if selection.activeIndex == index {
             fill = Color(white: 0.40)
         }
 
@@ -132,7 +121,7 @@ struct NumberPadView: View {
     }
 
     private func dwellRing(for box: NumberBox, geo: GeometryProxy) -> some View {
-        let progress = dwellStartTime.map { min(1.0, Date().timeIntervalSince($0) / dwellSeconds) } ?? 0
+        let progress = selection.dwellProgress
         return Circle()
             .trim(from: 0, to: progress)
             .stroke(Color.white, style: StrokeStyle(lineWidth: 6, lineCap: .round))
@@ -142,90 +131,21 @@ struct NumberPadView: View {
     }
 
     private func tick() {
-        guard !isShowingCameraPreview else { return }
-
         if let until = flashUntil, Date() >= until {
             flashIndex = nil
             flashUntil = nil
         }
-
-        guard let reading = tracker.latest else { return }
-
-        var blinkEvent = false
-        if reading.blinking {
-            eyesClosedRun += 1
-            openFrameStreak = 0
-        } else {
-            if eyesClosedRun >= blinkMinConsecutiveFrames { blinkEvent = true }
-            eyesClosedRun = 0
-            openFrameStreak += 1
+        let reading = tracker.latest
+        let position = reading.map {
+            model.predict(lookAtX: $0.lookAtX, lookAtY: $0.lookAtY, clampToScreen: false)
         }
-
-        // lookAtPoint is still recovering for a few frames right as the
-        // eyes reopen (eyelid/cornea not fully clear yet), so trust
-        // position again only once the eyes have been open for a short
-        // settle window -- otherwise, on the very tick a blink ends,
-        // resuming tracking immediately can slide the active box to a
-        // neighbor in the SAME tick that confirms the blink, selecting a
-        // digit the user was never looking at.
-        if openFrameStreak > blinkSettleFrames {
-            let (predX, predY) = model.predict(lookAtX: reading.lookAtX, lookAtY: reading.lookAtY)
-            let alpha = gazeSmoothing.alpha
-            smoothedX = alpha * predX + (1 - alpha) * smoothedX
-            smoothedY = alpha * predY + (1 - alpha) * smoothedY
-
-            let newActive = nearestBoxIndex(x: smoothedX, y: smoothedY)
-            if newActive != activeIndex {
-                activeIndex = newActive
-                firstBlinkTime = nil
-                armedIndex = nil
-                dwellStartTime = Date()
-            }
+        if let index = selection.update(reading: reading, position: position,
+                                        now: ProcessInfo.processInfo.systemUptime,
+                                        enabled: !isShowingCameraPreview && !tracker.trackingLost,
+                                        method: selectionMethod, smoothingAlpha: gazeSmoothing.alpha) {
+            outputDigits += boxes[index].label
+            flashIndex = index
+            flashUntil = Date().addingTimeInterval(flashDisplaySeconds)
         }
-
-        switch selectionMethod {
-        case .singleBlink:
-            if blinkEvent, let active = activeIndex { select(active) }
-
-        case .doubleBlink:
-            guard blinkEvent, let active = activeIndex else { return }
-            if let armed = armedIndex, armed == active,
-               let first = firstBlinkTime, Date().timeIntervalSince(first) <= doubleBlinkWindowSeconds {
-                select(active)
-            } else {
-                armedIndex = active
-                firstBlinkTime = Date()
-            }
-
-        case .dwell:
-            if let active = activeIndex, let start = dwellStartTime, Date().timeIntervalSince(start) >= dwellSeconds {
-                select(active)
-            }
-        }
-    }
-
-    private func nearestBoxIndex(x: Float, y: Float) -> Int? {
-        guard !boxes.isEmpty else { return nil }
-        var bestIndex = 0
-        var bestDistance = Float.greatestFiniteMagnitude
-        for (i, box) in boxes.enumerated() {
-            let dx = x - Float(box.cx)
-            let dy = y - Float(box.cy)
-            let d = dx * dx + dy * dy
-            if d < bestDistance {
-                bestDistance = d
-                bestIndex = i
-            }
-        }
-        return bestIndex
-    }
-
-    private func select(_ index: Int) {
-        outputDigits += boxes[index].label
-        flashIndex = index
-        flashUntil = Date().addingTimeInterval(flashDisplaySeconds)
-        armedIndex = nil
-        firstBlinkTime = nil
-        dwellStartTime = Date()
     }
 }
