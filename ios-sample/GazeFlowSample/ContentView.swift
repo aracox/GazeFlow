@@ -22,7 +22,7 @@ struct ContentView: View {
                     .padding()
                     .background(Color.black.ignoresSafeArea())
             case .calibrating:
-                CalibrationView(tracker: tracker, onBack: { stage = .starting }) { model in
+                CalibrationView(tracker: tracker, appMode: appMode, onBack: { stage = .starting }) { model in
                     calibrationModel = model
                     stage = .running
                 }

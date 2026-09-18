@@ -1,23 +1,43 @@
 import SwiftUI
 
 /// Fresh in-app calibration, same idea as gaze_ui_common.py's
-/// cross_calibration_points()/run_calibration(): a 5-point cross (four
-/// corners + center), calibrated against THIS window's own bounds each
-/// run rather than reusing a stale session's fit.
+/// cross_calibration_points()/run_calibration(): calibrate against THIS
+/// window's own bounds each run rather than reusing a stale session's fit.
+///
+/// Points are chosen per AppMode to match where that mode's real targets
+/// sit, not a generic 5-point cross -- a purely linear calibration model
+/// only strictly needs 2 points to define its slope, but concentrating the
+/// training data at the exact spots the user will later look at biases the
+/// fit's low-error region to land where it's actually needed (e.g. all 6
+/// narrow digit x-positions for Numbers, vs. just the 2 wide Yes/No zones).
+/// A couple of off-row points are still included in every mode so the
+/// per-axis 3-parameter fit (bias + rawX + rawY) has real Y variation to
+/// fit against, instead of degenerating from an all-one-row training set.
 struct CalibrationPoint: Identifiable {
     let id: String
     let x: CGFloat  // normalized [0,1] within the calibration area
     let y: CGFloat
 }
 
-let calibrationMargin: CGFloat = 0.15
-let calibrationCrossPoints: [CalibrationPoint] = [
-    CalibrationPoint(id: "center", x: 0.5, y: 0.5),
-    CalibrationPoint(id: "tl", x: calibrationMargin, y: calibrationMargin),
-    CalibrationPoint(id: "tr", x: 1 - calibrationMargin, y: calibrationMargin),
-    CalibrationPoint(id: "bl", x: calibrationMargin, y: 1 - calibrationMargin),
-    CalibrationPoint(id: "br", x: 1 - calibrationMargin, y: 1 - calibrationMargin),
-].shuffled()
+private func calibrationPoints(for mode: AppMode) -> [CalibrationPoint] {
+    var points: [CalibrationPoint] = [
+        CalibrationPoint(id: "top", x: 0.5, y: 0.15),
+        CalibrationPoint(id: "bottom", x: 0.5, y: 0.85),
+    ]
+
+    switch mode {
+    case .yesNo, .wordPicker:
+        points.append(CalibrationPoint(id: "left", x: 0.25, y: 0.5))
+        points.append(CalibrationPoint(id: "right", x: 0.75, y: 0.5))
+        points.append(CalibrationPoint(id: "center", x: 0.5, y: 0.5))
+    case .numberPad:
+        for (i, x) in numberPadTargetXPositions().enumerated() {
+            points.append(CalibrationPoint(id: "digit\(i)", x: x, y: 0.5))
+        }
+    }
+
+    return points.shuffled()
+}
 
 private let settleSeconds: Double = 0.4
 private let targetValidSamples = 30
@@ -25,9 +45,11 @@ private let prepSeconds: Double = 5.0
 
 struct CalibrationView: View {
     @ObservedObject var tracker: GazeTracker
+    let appMode: AppMode
     let onBack: () -> Void
     let onComplete: (LinearCalibrationModel) -> Void
 
+    @State private var points: [CalibrationPoint]
     @State private var pointIndex = 0
     @State private var phase: Phase = .prep
     @State private var collected: [(Float, Float, Float, Float)] = []
@@ -37,6 +59,14 @@ struct CalibrationView: View {
     @State private var isShowingCameraPreview = false
     @State private var prepStartTime = Date()
     @State private var prepRemaining = Int(prepSeconds.rounded(.up))
+
+    init(tracker: GazeTracker, appMode: AppMode, onBack: @escaping () -> Void, onComplete: @escaping (LinearCalibrationModel) -> Void) {
+        self.tracker = tracker
+        self.appMode = appMode
+        self.onBack = onBack
+        self.onComplete = onComplete
+        _points = State(initialValue: calibrationPoints(for: appMode))
+    }
 
     // Created exactly once (the initializer only runs the first time this
     // view's @State is set up, not on every body re-evaluation) -- unlike
@@ -72,8 +102,8 @@ struct CalibrationView: View {
                     }
                     .foregroundColor(.white)
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                } else if pointIndex < calibrationCrossPoints.count {
-                    let point = calibrationCrossPoints[pointIndex]
+                } else if pointIndex < points.count {
+                    let point = points[pointIndex]
                     let center = CGPoint(x: point.x * geo.size.width, y: point.y * geo.size.height)
 
                     Circle()
@@ -111,7 +141,7 @@ struct CalibrationView: View {
 
     private var diagnosticText: String {
         let hasReading = tracker.latest != nil ? "yes" : "no"
-        let line0 = "point: \(pointIndex)/\(calibrationCrossPoints.count), collected: \(collected.count), total: \(allSamples.count), phase: \(phase)"
+        let line0 = "point: \(pointIndex)/\(points.count), collected: \(collected.count), total: \(allSamples.count), phase: \(phase)"
         let line1 = "reading now: \(hasReading), blinking: \(tracker.latest?.blinking.description ?? "n/a"), ever: \(tracker.successfulReadingCount)"
         let line2 = "frames: \(tracker.frameCallbackCount), anchors: \(tracker.lastFrameAnchorCount), cam: \(tracker.cameraTrackingState)"
         var lines = [line0, line1, line2]
@@ -147,10 +177,10 @@ struct CalibrationView: View {
             return
         }
 
-        guard pointIndex < calibrationCrossPoints.count else { return }
+        guard pointIndex < points.count else { return }
         guard phase == .collecting, let reading = tracker.latest, !reading.blinking else { return }
 
-        let point = calibrationCrossPoints[pointIndex]
+        let point = points[pointIndex]
         collected.append((reading.lookAtX, reading.lookAtY, Float(point.x), Float(point.y)))
         progress = min(1.0, Double(collected.count) / Double(targetValidSamples))
 
@@ -162,7 +192,7 @@ struct CalibrationView: View {
     private func finishPoint() {
         allSamples.append(contentsOf: collected)
         pointIndex += 1
-        if pointIndex >= calibrationCrossPoints.count {
+        if pointIndex >= points.count {
             if let model = LinearCalibrationModel(samples: allSamples) {
                 onComplete(model)
             } else {

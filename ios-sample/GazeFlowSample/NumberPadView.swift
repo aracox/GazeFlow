@@ -6,6 +6,7 @@ import SwiftUI
 /// reset or navigate back to the start menu, so you can keep picking digits
 /// in a row.
 private let blinkMinConsecutiveFrames = 3
+private let blinkSettleFrames = 3
 private let doubleBlinkWindowSeconds: TimeInterval = 0.8
 private let dwellSeconds: TimeInterval = 2.0
 private let flashDisplaySeconds: TimeInterval = 0.4
@@ -30,6 +31,12 @@ private func digitBoxes() -> [NumberBox] {
     }
 }
 
+/// Exposes the digit boxes' exact x-positions so CalibrationView can
+/// calibrate directly at these targets instead of a generic cross.
+func numberPadTargetXPositions() -> [CGFloat] {
+    digitBoxes().map { $0.cx }
+}
+
 struct NumberPadView: View {
     @ObservedObject var tracker: GazeTracker
     let model: LinearCalibrationModel
@@ -48,6 +55,7 @@ struct NumberPadView: View {
     @State private var outputDigits: String = ""
 
     @State private var eyesClosedRun = 0
+    @State private var openFrameStreak = 0
     @State private var firstBlinkTime: Date?
     @State private var dwellStartTime: Date?
     @State private var isShowingCameraPreview = false
@@ -143,11 +151,24 @@ struct NumberPadView: View {
 
         guard let reading = tracker.latest else { return }
 
-        // lookAtPoint drifts while the eyes are physically closing/opening,
-        // so only update the tracked position and active box while eyes are
-        // open -- otherwise a blink can slide the active box to a neighbor
-        // right as it's detected, selecting a digit the user never looked at.
-        if !reading.blinking {
+        var blinkEvent = false
+        if reading.blinking {
+            eyesClosedRun += 1
+            openFrameStreak = 0
+        } else {
+            if eyesClosedRun >= blinkMinConsecutiveFrames { blinkEvent = true }
+            eyesClosedRun = 0
+            openFrameStreak += 1
+        }
+
+        // lookAtPoint is still recovering for a few frames right as the
+        // eyes reopen (eyelid/cornea not fully clear yet), so trust
+        // position again only once the eyes have been open for a short
+        // settle window -- otherwise, on the very tick a blink ends,
+        // resuming tracking immediately can slide the active box to a
+        // neighbor in the SAME tick that confirms the blink, selecting a
+        // digit the user was never looking at.
+        if openFrameStreak > blinkSettleFrames {
             let (predX, predY) = model.predict(lookAtX: reading.lookAtX, lookAtY: reading.lookAtY)
             let alpha = gazeSmoothing.alpha
             smoothedX = alpha * predX + (1 - alpha) * smoothedX
@@ -160,14 +181,6 @@ struct NumberPadView: View {
                 armedIndex = nil
                 dwellStartTime = Date()
             }
-        }
-
-        var blinkEvent = false
-        if reading.blinking {
-            eyesClosedRun += 1
-        } else {
-            if eyesClosedRun >= blinkMinConsecutiveFrames { blinkEvent = true }
-            eyesClosedRun = 0
         }
 
         switch selectionMethod {

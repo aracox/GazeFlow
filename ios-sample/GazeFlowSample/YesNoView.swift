@@ -7,6 +7,7 @@ import SwiftUI
 /// removed there in favor of blink-only, offered here as a user choice
 /// instead of picking one for everyone).
 private let blinkMinConsecutiveFrames = 3
+private let blinkSettleFrames = 3
 private let doubleBlinkWindowSeconds: TimeInterval = 0.8
 private let dwellSeconds: TimeInterval = 2.0
 private let confirmationDisplaySeconds = 1.2
@@ -27,6 +28,7 @@ struct YesNoView: View {
     @State private var answerHistory: [String] = []
 
     @State private var eyesClosedRun = 0
+    @State private var openFrameStreak = 0
     @State private var firstBlinkTime: Date?
     @State private var armedZone: Zone?
     @State private var dwellStartTime: Date?
@@ -133,11 +135,24 @@ struct YesNoView: View {
         guard confirmedZone == nil else { return }
         guard let reading = tracker.latest else { return }
 
-        // lookAtPoint drifts while the eyes are physically closing/opening,
-        // so only update the tracked position and zone while eyes are open
-        // -- otherwise a blink can slide the zone to the wrong side right
-        // as it's detected, confirming an answer the user never looked at.
-        if !reading.blinking {
+        var blinkEvent = false
+        if reading.blinking {
+            eyesClosedRun += 1
+            openFrameStreak = 0
+        } else {
+            if eyesClosedRun >= blinkMinConsecutiveFrames { blinkEvent = true }
+            eyesClosedRun = 0
+            openFrameStreak += 1
+        }
+
+        // lookAtPoint is still recovering for a few frames right as the
+        // eyes reopen (eyelid/cornea not fully clear yet), so trust
+        // position again only once the eyes have been open for a short
+        // settle window -- otherwise, on the very tick a blink ends,
+        // resuming tracking immediately can slide the zone to the other
+        // side in the SAME tick that confirms the blink, picking an
+        // answer the user was never looking at.
+        if openFrameStreak > blinkSettleFrames {
             let (predX, predY) = model.predict(lookAtX: reading.lookAtX, lookAtY: reading.lookAtY)
             let alpha = gazeSmoothing.alpha
             smoothedX = alpha * predX + (1 - alpha) * smoothedX
@@ -150,14 +165,6 @@ struct YesNoView: View {
                 firstBlinkTime = nil
                 armedZone = nil
             }
-        }
-
-        var blinkEvent = false
-        if reading.blinking {
-            eyesClosedRun += 1
-        } else {
-            if eyesClosedRun >= blinkMinConsecutiveFrames { blinkEvent = true }
-            eyesClosedRun = 0
         }
 
         switch selectionMethod {
