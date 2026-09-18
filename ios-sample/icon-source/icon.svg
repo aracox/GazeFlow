@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- eye outline (almond shape) -->
+  <path d="M 130 512
+           C 280 300, 744 300, 894 512
+           C 744 724, 280 724, 130 512 Z"
+        fill="#F8FAFC"/>
+
+  <!-- iris -->
+  <circle cx="512" cy="512" r="168" fill="#1E293B"/>
+  <circle cx="512" cy="512" r="168" fill="none" stroke="#0EA5E9" stroke-width="14"/>
+
+  <!-- pupil -->
+  <circle cx="512" cy="512" r="72" fill="#0F172A"/>
+
+  <!-- catchlight -->
+  <circle cx="560" cy="466" r="30" fill="#F8FAFC" opacity="0.9"/>
+
+  <!-- gaze-target crosshair, offset to suggest a tracked gaze point -->
+  <g stroke="#F8FAFC" stroke-width="10" stroke-linecap="round" opacity="0.95">
+    <line x1="800" y1="230" x2="800" y2="290"/>
+    <line x1="800" y1="330" x2="800" y2="330"/>
+    <line x1="770" y1="260" x2="830" y2="260"/>
+  </g>
+  <circle cx="800" cy="260" r="46" fill="none" stroke="#F8FAFC" stroke-width="10" opacity="0.95"/>
+  <circle cx="800" cy="260" r="8" fill="#F8FAFC"/>
+</svg>

@@ -1,0 +1,27 @@
+name: GazeFlowSample
+options:
+  bundleIdPrefix: com.gazeflow.sample
+targets:
+  GazeFlowSample:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [GazeFlowSample]
+    info:
+      path: GazeFlowSample/Info.plist
+      properties:
+        NSCameraUsageDescription: "Used for ARKit face/gaze tracking. No video is recorded or leaves the device."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIRequiresFullScreen: true
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gazeflow.sample
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "2"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

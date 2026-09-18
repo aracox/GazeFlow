@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <filter id="watercolor" x="-30%" y="-30%" width="160%" height="160%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="4" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <filter id="watercolorSoft" x="-30%" y="-30%" width="160%" height="160%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="11" result="noise2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise2" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="4" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/>
+    </filter>
+  </defs>
+
+  <!-- warm cream paper background -->
+  <rect width="1024" height="1024" fill="#FAF1E4"/>
+  <rect width="1024" height="1024" filter="url(#grain)"/>
+
+  <!-- soft warm wash blobs -->
+  <ellipse cx="260" cy="230" rx="360" ry="300" fill="#F2B072" opacity="0.38" filter="url(#watercolorSoft)"/>
+  <ellipse cx="800" cy="720" rx="420" ry="360" fill="#E8834A" opacity="0.32" filter="url(#watercolorSoft)"/>
+  <ellipse cx="560" cy="560" rx="320" ry="280" fill="#F6C453" opacity="0.28" filter="url(#watercolorSoft)"/>
+  <ellipse cx="720" cy="260" rx="220" ry="190" fill="#E2664A" opacity="0.22" filter="url(#watercolorSoft)"/>
+
+  <!-- eye, layered watercolor washes -->
+  <path d="M 140 512 C 296 304, 728 304, 884 512 C 728 720, 296 720, 140 512 Z"
+        fill="#D9713C" opacity="0.30" filter="url(#watercolor)"/>
+  <path d="M 170 512 C 310 330, 714 330, 854 512 C 714 694, 310 694, 170 512 Z"
+        fill="#C85A2E" opacity="0.55" filter="url(#watercolor)"/>
+
+  <!-- iris washes -->
+  <circle cx="512" cy="512" r="176" fill="#B24A26" opacity="0.55" filter="url(#watercolor)"/>
+  <circle cx="512" cy="512" r="150" fill="#8A3A1E" opacity="0.7" filter="url(#watercolor)"/>
+  <circle cx="512" cy="512" r="118" fill="#5E2A18" opacity="0.85" filter="url(#watercolorSoft)"/>
+
+  <!-- pupil -->
+  <circle cx="512" cy="512" r="58" fill="#2E1710" opacity="0.9"/>
+
+  <!-- catchlight -->
+  <circle cx="562" cy="466" r="24" fill="#FDF3E2" opacity="0.85" filter="url(#watercolorSoft)"/>
+
+  <!-- warm accent mark, upper right, hinting a gaze/focus point -->
+  <circle cx="780" cy="250" r="14" fill="#E2664A" opacity="0.75" filter="url(#watercolorSoft)"/>
+  <circle cx="742" cy="292" r="8" fill="#F2B072" opacity="0.7" filter="url(#watercolorSoft)"/>
+</svg>
